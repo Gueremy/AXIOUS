@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Backend — Inventario 3D Salmonera</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #07080d;
+  --s1:      #0d1117;
+  --s2:      #111827;
+  --border:  #1e2a3a;
+  --cyan:    #00d4ff;
+  --green:   #00ff9d;
+  --orange:  #ff8c42;
+  --purple:  #a78bfa;
+  --yellow:  #fbbf24;
+  --red:     #f87171;
+  --pink:    #f472b6;
+  --white:   #e8f4f8;
+  --muted:   #4a6278;
+  --text:    #9ab5cc;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 50% 40% at 10% 0%,rgba(0,212,255,.05) 0%,transparent 60%),
+             radial-gradient(ellipse 40% 30% at 90% 100%,rgba(0,255,157,.04) 0%,transparent 60%)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,212,255,.015) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(0,212,255,.015) 1px,transparent 1px);
+  background-size:40px 40px}
+
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:48px 24px 120px}
+
+/* HERO */
+.hero{margin-bottom:60px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--cyan);color:var(--cyan);font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:4px 14px;margin-bottom:20px}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(28px,5vw,52px);font-weight:800;color:var(--white);letter-spacing:-1.5px;line-height:1;margin-bottom:12px}
+.hero h1 em{font-style:normal;color:var(--cyan)}
+.hero-sub{color:var(--muted);font-size:11px;margin-bottom:24px}
+.hero-meta{display:flex;gap:20px;flex-wrap:wrap}
+.meta-pill{font-size:10px;padding:4px 12px;border:1px solid var(--border);color:var(--muted)}
+.meta-pill span{color:var(--white);font-weight:600}
+
+/* FASES */
+.phases{display:flex;flex-direction:column;gap:4px;margin-bottom:60px}
+.phase{display:grid;grid-template-columns:180px 1fr;border:1px solid var(--border);background:var(--s1);overflow:hidden;transition:border-color .2s}
+.phase:hover{border-color:var(--muted)}
+.phase-label{padding:20px 24px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center}
+.phase-num{font-size:9px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.phase-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;color:var(--white);margin-bottom:4px}
+.phase-weeks{font-size:10px;color:var(--muted)}
+.phase-content{padding:20px 24px}
+.phase-desc{font-size:11px;color:var(--text);margin-bottom:14px}
+.tasks{display:flex;flex-wrap:wrap;gap:6px}
+.task{font-size:10px;padding:3px 10px;border:1px solid;white-space:nowrap}
+
+/* ENDPOINTS */
+.section-label{display:flex;align-items:center;gap:12px;font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--cyan);margin-bottom:24px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.section-label .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--cyan);font-size:9px}
+
+.endpoints-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:60px}
+.ep-group{background:var(--s1);border:1px solid var(--border);overflow:hidden}
+.ep-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.ep-icon{font-size:16px}
+.ep-name{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--white)}
+.ep-body{padding:0}
+.endpoint{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid rgba(30,42,58,.5);font-size:10px}
+.endpoint:last-child{border-bottom:none}
+.method{font-size:8px;font-weight:700;padding:2px 6px;border-radius:2px;min-width:40px;text-align:center;flex-shrink:0}
+.GET   {background:rgba(0,212,255,.12);color:var(--cyan)}
+.POST  {background:rgba(0,255,157,.12);color:var(--green)}
+.PATCH {background:rgba(251,191,36,.12);color:var(--yellow)}
+.DELETE{background:rgba(248,113,113,.12);color:var(--red)}
+.ep-path{color:var(--text);flex:1;font-size:10px}
+.ep-desc{color:var(--muted);font-size:9px;text-align:right}
+
+/* ORDEN DE DESARROLLO */
+.sprint-list{display:flex;flex-direction:column;gap:8px;margin-bottom:60px}
+.sprint{background:var(--s1);border:1px solid var(--border);display:flex;gap:0;overflow:hidden}
+.sprint-week{width:90px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 12px;border-right:1px solid var(--border)}
+.sprint-week-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1}
+.sprint-week-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.sprint-body{flex:1;padding:16px 20px}
+.sprint-title{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--white);margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.sprint-items{display:flex;flex-direction:column;gap:4px}
+.sprint-item{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text)}
+.sprint-item::before{content:'→';color:var(--muted);flex-shrink:0}
+.sprint-entregable{font-size:10px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.sprint-entregable strong{color:var(--yellow)}
+
+/* REGLAS CRITICAS */
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:60px}
+.rule{background:var(--s1);border:1px solid var(--border);padding:20px}
+.rule-icon{font-size:24px;margin-bottom:10px}
+.rule-title{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;margin-bottom:8px}
+.rule-body{font-size:11px;color:var(--text);line-height:1.7}
+.rule-code{background:var(--bg);border:1px solid var(--border);padding:10px 12px;margin-top:10px;font-size:10px;color:var(--cyan);overflow-x:auto}
+
+/* ORDEN CORRECTO */
+.order-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:60px}
+.order-card{background:var(--s1);border:1px solid var(--border);padding:18px;text-align:center}
+.order-num{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;line-height:1;margin-bottom:8px}
+.order-title{font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--white);margin-bottom:6px}
+.order-desc{font-size:10px;color:var(--muted);line-height:1.6}
+
+/* EVALUACION */
+.eval-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:60px}
+.eval-card{background:var(--s1);border:1px solid var(--border);padding:16px;text-align:center}
+.eval-score{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;line-height:1;margin-bottom:4px}
+.eval-label{font-size:10px;color:var(--white);font-weight:600;margin-bottom:6px;font-family:'Syne',sans-serif}
+.eval-bar{height:3px;background:var(--border);margin-bottom:8px}
+.eval-fill{height:3px}
+.eval-note{font-size:9px;color:var(--muted);line-height:1.5}
+
+/* CHECKLIST */
+.checklist{background:var(--s1);border:1px solid var(--border);padding:24px;margin-bottom:60px}
+.checklist-title{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--white);margin-bottom:16px}
+.check-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px}
+.check-group-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
+.check-item{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text);margin-bottom:6px}
+.check-box{width:14px;height:14px;border:1px solid var(--border);flex-shrink:0;margin-top:1px}
+
+@media(max-width:900px){
+  .endpoints-grid{grid-template-columns:1fr 1fr}
+  .order-grid{grid-template-columns:repeat(2,1fr)}
+  .eval-row{grid-template-columns:repeat(3,1fr)}
+  .rules{grid-template-columns:1fr}
+  .phase{grid-template-columns:1fr}
+  .phase-label{border-right:none;border-bottom:1px solid var(--border)}
+}
+@media(max-width:600px){
+  .endpoints-grid{grid-template-columns:1fr}
+  .order-grid{grid-template-columns:1fr 1fr}
+  .eval-row{grid-template-columns:repeat(2,1fr)}
+  .check-cols{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">🐟 Planificación Backend</div>
+  <h1>Plan de Desarrollo<br><em>Backend Completo</em></h1>
+  <p class="hero-sub">Sistema de Gestión de Inventario 3D — Skretting / Empresa Salmonera</p>
+  <div class="hero-meta">
+    <div class="meta-pill">Stack: <span>FastAPI + SQLAlchemy + PostgreSQL</span></div>
+    <div class="meta-pill">Duración: <span>8 semanas</span></div>
+    <div class="meta-pill">Sprints: <span>8 semanas / 1 por semana</span></div>
+    <div class="meta-pill">Entregable: <span>API REST completa + WebSockets + ETL</span></div>
+  </div>
+</div>
+
+<!-- FASES -->
+<div class="section-label"><span class="num">01</span> Fases del Backend</div>
+<div class="phases">
+
+  <div class="phase">
+    <div class="phase-label" style="border-left:3px solid var(--cyan)">
+      <div class="phase-num" style="color:var(--cyan)">Fase 1</div>
+      <div class="phase-title">Fundamentos</div>
+      <div class="phase-weeks">Semanas 1 — 2</div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-desc">Setup del proyecto, modelos de BD, migraciones con Alembic y autenticación JWT completa. Al final de esta fase el sistema puede crear usuarios y hacer login.</div>
+      <div class="tasks">
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">Estructura de carpetas</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">7 modelos SQLAlchemy</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">Alembic migraciones</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">JWT + bcrypt auth</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">Guards por rol</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">Índices PostgreSQL</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">Trigger inmutabilidad</span>
+        <span class="task" style="border-color:var(--cyan);color:var(--cyan)">.env + config</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label" style="border-left:3px solid var(--green)">
+      <div class="phase-num" style="color:var(--green)">Fase 2</div>
+      <div class="phase-title">CRUD Core</div>
+      <div class="phase-weeks">Semanas 3 — 4</div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-desc">Todos los endpoints CRUD de Sedes, Galpones, Containers, Productos y Usuarios. Con paginación, filtros y validaciones Pydantic. Al final puedes gestionar toda la estructura física desde Swagger.</div>
+      <div class="tasks">
+        <span class="task" style="border-color:var(--green);color:var(--green)">CRUD Sedes</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">CRUD Galpones</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">CRUD Containers</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">CRUD Productos</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">CRUD Usuarios</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">Schemas Pydantic</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">Paginación</span>
+        <span class="task" style="border-color:var(--green);color:var(--green)">Filtros por sede/rol</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label" style="border-left:3px solid var(--orange)">
+      <div class="phase-num" style="color:var(--orange)">Fase 3</div>
+      <div class="phase-title">Movimientos</div>
+      <div class="phase-weeks">Semanas 5 — 6</div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-desc">El corazón del sistema. Registro de movimientos con flujo de aprobación, validaciones SERNAPESCA, lógica FEFO, trazabilidad de lotes y sincronización offline. El sprint más complejo.</div>
+      <div class="tasks">
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Registrar movimiento</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Flujo aprobación</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Validación SERNAPESCA</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">FEFO automático</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Trazabilidad de lote</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Sync offline</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Optimización ruta galpón</span>
+        <span class="task" style="border-color:var(--orange);color:var(--orange)">Historial inmutable</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label" style="border-left:3px solid var(--purple)">
+      <div class="phase-num" style="color:var(--purple)">Fase 4</div>
+      <div class="phase-title">Alertas + BI</div>
+      <div class="phase-weeks">Semanas 7 — 8</div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-desc">Motor de alertas automáticas con WebSockets, ETL nocturno para el Data Warehouse, endpoints de KPIs para los dashboards y exportación de reportes PDF/Excel con campos SERNAPESCA.</div>
+      <div class="tasks">
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">Motor de alertas</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">WebSockets tiempo real</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">ETL nocturno APScheduler</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">Endpoints KPIs</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">Export PDF reportlab</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">Export Excel openpyxl</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">Dashboard data endpoint</span>
+        <span class="task" style="border-color:var(--purple);color:var(--purple)">Seed de datos</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ORDEN SEMANAL DETALLADO -->
+<div class="section-label"><span class="num">02</span> Orden Semanal de Desarrollo</div>
+<div class="sprint-list">
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--cyan)">
+      <div class="sprint-week-num" style="color:var(--cyan)">S1</div>
+      <div class="sprint-week-label">Setup</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">⚙️ Setup del proyecto + config + base de datos</div>
+      <div class="sprint-items">
+        <div class="sprint-item">Crear estructura de carpetas y activar entorno virtual</div>
+        <div class="sprint-item">Instalar dependencias y fijar versiones en requirements.txt</div>
+        <div class="sprint-item">Crear .env con DATABASE_URL y SECRET_KEY</div>
+        <div class="sprint-item">Configurar app/core/config.py con pydantic-settings</div>
+        <div class="sprint-item">Crear app/database.py con engine async y Base declarativa</div>
+        <div class="sprint-item">Escribir los 7 modelos SQLAlchemy completos (sede, galpon, container, producto, usuario, movimiento, alerta)</div>
+        <div class="sprint-item">Inicializar Alembic y crear primera migración —autogenerate</div>
+        <div class="sprint-item">Ejecutar alembic upgrade head — verificar tablas en PostgreSQL</div>
+        <div class="sprint-item">Crear trigger de inmutabilidad en tabla movimiento</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> Base de datos creada con todas las tablas. <code>uvicorn app.main:app --reload</code> funciona sin errores.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--cyan)">
+      <div class="sprint-week-num" style="color:var(--cyan)">S2</div>
+      <div class="sprint-week-label">Auth</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">🔐 Autenticación JWT + guards por rol</div>
+      <div class="sprint-items">
+        <div class="sprint-item">Instalar python-jose y passlib[bcrypt]</div>
+        <div class="sprint-item">Crear app/core/security.py — funciones hash_password, verify_password, create_token, decode_token</div>
+        <div class="sprint-item">Crear app/api/auth.py — POST /auth/login que devuelve access_token</div>
+        <div class="sprint-item">Crear dependencia get_current_user que valida el JWT en cada request</div>
+        <div class="sprint-item">Crear dependencia require_role(roles: list) que bloquea por rol</div>
+        <div class="sprint-item">Crear POST /auth/register (solo Super Admin puede crear usuarios)</div>
+        <div class="sprint-item">Agregar rate limiting al endpoint de login (5 intentos / 5 minutos)</div>
+        <div class="sprint-item">Probar con Swagger — login → copiar token → usarlo en endpoints protegidos</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> Login funcionando. Token JWT válido. Endpoints protegidos rechazan sin token con 401.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--green)">
+      <div class="sprint-week-num" style="color:var(--green)">S3</div>
+      <div class="sprint-week-label">CRUD I</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">🏭 CRUD Sedes + Galpones + Containers</div>
+      <div class="sprint-items">
+        <div class="sprint-item">Crear schemas Pydantic para Sede (SedeCreate, SedeRead, SedeUpdate)</div>
+        <div class="sprint-item">Crear app/api/sedes.py — GET lista, GET por id, POST, PATCH, DELETE (solo Super Admin)</div>
+        <div class="sprint-item">Crear schemas y router para Galpon — incluir validación de unicidad de código por sede</div>
+        <div class="sprint-item">Crear schemas y router para Container — incluir validación unicidad (fila, col) por galpón</div>
+        <div class="sprint-item">En todos los GETs usar selectinload para evitar N+1</div>
+        <div class="sprint-item">Agregar paginación (skip, limit) en listados</div>
+        <div class="sprint-item">Agregar filtro por sede en endpoints donde aplica (aislamiento multi-tenant)</div>
+        <div class="sprint-item">Registrar todos los routers en app/main.py</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> Desde Swagger puedes crear una sede, agregarle galpones y containers. Los filtros por sede funcionan.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--green)">
+      <div class="sprint-week-num" style="color:var(--green)">S4</div>
+      <div class="sprint-week-label">CRUD II</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">👤 CRUD Usuarios + Productos + QR</div>
+      <div class="sprint-items">
+        <div class="sprint-item">Crear router de Usuarios — GET lista (por sede), GET perfil propio, PATCH actualizar, DELETE desactivar</div>
+        <div class="sprint-item">Endpoint POST /usuarios/{id}/asignar-galpones — tabla pivot usuario_galpon</div>
+        <div class="sprint-item">Asegurarse que RUT NUNCA aparece en ningún response schema (Ley 19.628)</div>
+        <div class="sprint-item">Crear router de Productos — CRUD completo, filtro por categoría</div>
+        <div class="sprint-item">Endpoint GET /containers/{id}/qr — genera código QR del container como imagen base64</div>
+        <div class="sprint-item">Endpoint GET /containers/{id}/info-publica — datos que se muestran al escanear QR (sin datos sensibles)</div>
+        <div class="sprint-item">Crear app/api/__init__.py con api_router que agrupa todos los routers</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> CRUD completo de las 5 entidades base. QR funcional. API lista para recibir movimientos.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--orange)">
+      <div class="sprint-week-num" style="color:var(--orange)">S5</div>
+      <div class="sprint-week-label">Movimientos</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">🔄 Registro de movimientos + SERNAPESCA + flujo aprobación</div>
+      <div class="sprint-items">
+        <div class="sprint-item">Crear schema MovimientoCreate con validación de campos SERNAPESCA obligatorios (numero_lote, fecha_vencimiento, nombre_proveedor, num_guia_despacho, registro_sanitario)</div>
+        <div class="sprint-item">Para productos veterinarios: campos SAG obligatorios (num_receta_retenida, num_autorizacion_sag)</div>
+        <div class="sprint-item">POST /movimientos/ — valida capacidad del container, tipo de producto permitido y separación alimento-químico</div>
+        <div class="sprint-item">Traslados simples → estado aprobado automáticamente. Entradas/salidas → estado pendiente</div>
+        <div class="sprint-item">PATCH /movimientos/{id}/aprobar — solo Jefe de Bodega, no puede aprobar los suyos propios</div>
+        <div class="sprint-item">PATCH /movimientos/{id}/rechazar — incluir motivo_rechazo obligatorio</div>
+        <div class="sprint-item">Al aprobar: actualizar ocupacion_actual del container + actualizar ultimo_movimiento</div>
+        <div class="sprint-item">GET /movimientos/pendientes — lista para el Jefe de Bodega</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> Flujo completo de movimiento — registrar → pendiente → jefe aprueba → container actualizado.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--orange)">
+      <div class="sprint-week-num" style="color:var(--orange)">S6</div>
+      <div class="sprint-week-label">FEFO + Sync</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">🧠 FEFO + Trazabilidad + Sync offline</div>
+      <div class="sprint-items">
+        <div class="sprint-item">GET /movimientos/fefo?id_producto=X&id_sede=Y — devuelve containers ordenados por fecha de vencimiento más próxima</div>
+        <div class="sprint-item">GET /movimientos/ruta-picking?containers=[] — algoritmo Nearest Neighbor para optimizar recorrido en el galpón</div>
+        <div class="sprint-item">GET /movimientos/trazabilidad?numero_lote=X — historial completo del lote en menos de 10s (usa índice GIN)</div>
+        <div class="sprint-item">POST /movimientos/sync — endpoint que recibe lista de movimientos offline, los procesa con resolver_conflicto() y devuelve resultado por cada uno</div>
+        <div class="sprint-item">Lógica de resolución de conflictos: si el container ya no tiene capacidad, rechazar el movimiento offline con motivo claro</div>
+        <div class="sprint-item">Marcar movimientos sincronizados con origen='offline_sync' en la BD</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> FEFO funcionando. Trazabilidad de lote en segundos. Endpoint de sync offline probado con casos de conflicto.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--purple)">
+      <div class="sprint-week-num" style="color:var(--purple)">S7</div>
+      <div class="sprint-week-label">Alertas</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">🔔 Motor de alertas + WebSockets tiempo real</div>
+      <div class="sprint-items">
+        <div class="sprint-item">Crear app/services/alertas.py — función evaluar_alertas(id_container) que revisa las 8 condiciones</div>
+        <div class="sprint-item">Llamar evaluar_alertas() automáticamente después de cada movimiento aprobado</div>
+        <div class="sprint-item">APScheduler: job nocturno que evalúa alertas de vencimiento (30 días y 7 días) para todos los containers activos</div>
+        <div class="sprint-item">APScheduler: job cada 30 minutos que evalúa containers sin movimiento en 30 días</div>
+        <div class="sprint-item">WebSocket WS /ws/alertas/{id_sede} — el Jefe de Bodega se conecta y recibe alertas en tiempo real</div>
+        <div class="sprint-item">Al crear una alerta nueva, emitir el evento por WebSocket a todos los clientes conectados de esa sede</div>
+        <div class="sprint-item">PATCH /alertas/{id}/revisar — marcar como revisada. PATCH /alertas/{id}/resolver — marcar como resuelta</div>
+        <div class="sprint-item">GET /alertas/activas?id_sede=X — lista para el dashboard del Jefe</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> Alertas generadas automáticamente. WebSocket enviando notificaciones al cliente en tiempo real. Probado con wscat.</div>
+    </div>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-week" style="border-left:3px solid var(--purple)">
+      <div class="sprint-week-num" style="color:var(--purple)">S8</div>
+      <div class="sprint-week-label">BI + Export</div>
+    </div>
+    <div class="sprint-body">
+      <div class="sprint-title">📊 KPIs + ETL + Reportes + Seed</div>
+      <div class="sprint-items">
+        <div class="sprint-item">GET /dashboard/kpis?id_sede=X — devuelve ocupación global, alertas activas, movimientos hoy, mermas del mes</div>
+        <div class="sprint-item">GET /dashboard/ocupacion-por-galpon?id_sede=X — datos para el gráfico de barras de Recharts</div>
+        <div class="sprint-item">GET /dashboard/evolucion?id_sede=X&dias=30 — datos para el gráfico de líneas temporal</div>
+        <div class="sprint-item">GET /reportes/movimientos/pdf — genera PDF con reportlab incluyendo logo y campos SERNAPESCA</div>
+        <div class="sprint-item">GET /reportes/movimientos/excel — genera .xlsx con openpyxl para auditores ISO</div>
+        <div class="sprint-item">APScheduler: ETL nocturno que carga datos al esquema DWH en PostgreSQL para Metabase</div>
+        <div class="sprint-item">Crear scripts/seed.py — datos de prueba: 1 empresa, 4 sedes, 3 galpones c/u, 20 containers c/u, 8 usuarios, 50 movimientos</div>
+        <div class="sprint-item">Escribir README.md con instrucciones de instalación y endpoints principales</div>
+      </div>
+      <div class="sprint-entregable"><strong>✅ Entregable:</strong> Backend 100% completo. Seed funciona. PDF y Excel exportables. ETL corriendo. API lista para conectar el frontend.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ENDPOINTS COMPLETOS -->
+<div class="section-label"><span class="num">03</span> Mapa de Endpoints</div>
+<div class="endpoints-grid">
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">🔐</span><span class="ep-name">Auth</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/auth/login</span><span class="ep-desc">Login → JWT</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/auth/register</span><span class="ep-desc">Crear usuario</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/auth/me</span><span class="ep-desc">Perfil actual</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/auth/refresh</span><span class="ep-desc">Renovar token</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">🏭</span><span class="ep-name">Sedes</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/sedes</span><span class="ep-desc">Lista todas</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/sedes/{id}</span><span class="ep-desc">Detalle</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/sedes</span><span class="ep-desc">Crear sede</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/sedes/{id}</span><span class="ep-desc">Actualizar</span></div>
+      <div class="endpoint"><span class="method DELETE">DELETE</span><span class="ep-path">/sedes/{id}</span><span class="ep-desc">Desactivar</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">🏗️</span><span class="ep-name">Galpones</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/galpones?id_sede=X</span><span class="ep-desc">Por sede</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/galpones/{id}</span><span class="ep-desc">Con containers</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/galpones</span><span class="ep-desc">Crear galpón</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/galpones/{id}</span><span class="ep-desc">Actualizar</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">📦</span><span class="ep-name">Containers</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/containers?id_galpon=X</span><span class="ep-desc">Grilla 3D</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/containers/{id}</span><span class="ep-desc">Detalle</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/containers/{id}/qr</span><span class="ep-desc">Imagen QR base64</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/containers/{id}/info-publica</span><span class="ep-desc">Escaneo QR</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/containers</span><span class="ep-desc">Crear</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/containers/{id}/estado</span><span class="ep-desc">Cambiar estado</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">🔄</span><span class="ep-name">Movimientos</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/movimientos</span><span class="ep-desc">Registrar</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/movimientos/pendientes</span><span class="ep-desc">Para jefe</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/movimientos/{id}/aprobar</span><span class="ep-desc">Aprobar</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/movimientos/{id}/rechazar</span><span class="ep-desc">Rechazar</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/movimientos/trazabilidad</span><span class="ep-desc">Por lote</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/movimientos/fefo</span><span class="ep-desc">FEFO sugerido</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/movimientos/sync</span><span class="ep-desc">Sync offline</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/movimientos/ruta-picking</span><span class="ep-desc">Optimizar ruta</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">🔔</span><span class="ep-name">Alertas + WS</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/alertas/activas</span><span class="ep-desc">Por sede</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/alertas/{id}/revisar</span><span class="ep-desc">Marcar revisada</span></div>
+      <div class="endpoint"><span class="method PATCH">PATCH</span><span class="ep-path">/alertas/{id}/resolver</span><span class="ep-desc">Marcar resuelta</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">WS /ws/alertas/{sede}</span><span class="ep-desc">Tiempo real</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">📊</span><span class="ep-name">Dashboard / KPIs</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/dashboard/kpis</span><span class="ep-desc">KPI cards</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/dashboard/ocupacion-por-galpon</span><span class="ep-desc">Barras Recharts</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/dashboard/evolucion</span><span class="ep-desc">Línea temporal</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/dashboard/comparativo-sedes</span><span class="ep-desc">Radar gerencia</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">📄</span><span class="ep-name">Reportes</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/reportes/movimientos/pdf</span><span class="ep-desc">PDF con logo</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/reportes/movimientos/excel</span><span class="ep-desc">Excel ISO</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/reportes/sernapesca</span><span class="ep-desc">Formulario oficial</span></div>
+    </div>
+  </div>
+
+  <div class="ep-group">
+    <div class="ep-header"><span class="ep-icon">👤</span><span class="ep-name">Usuarios + Productos</span></div>
+    <div class="ep-body">
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/usuarios?id_sede=X</span><span class="ep-desc">Por sede</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/usuarios/{id}/asignar-galpones</span><span class="ep-desc">Asignar</span></div>
+      <div class="endpoint"><span class="method GET">GET</span><span class="ep-path">/productos</span><span class="ep-desc">Catálogo</span></div>
+      <div class="endpoint"><span class="method POST">POST</span><span class="ep-path">/productos</span><span class="ep-desc">Crear producto</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- REGLAS CRITICAS -->
+<div class="section-label"><span class="num">04</span> Reglas que no puedes olvidar</div>
+<div class="rules">
+
+  <div class="rule">
+    <div class="rule-icon">🔒</div>
+    <div class="rule-title" style="color:var(--red)">Jamás exponer el RUT — Ley 19.628</div>
+    <div class="rule-body">El RUT de operarios y proveedores se guarda en la BD internamente pero nunca aparece en ningún response de la API. En los schemas Pydantic de respuesta, el campo <code>rut</code> simplemente no existe. En reportes externos usar <code>codigo_empleado</code>.</div>
+    <div class="rule-code">class UsuarioRead(BaseModel):
+    id: str
+    nombre: str
+    email: str
+    codigo_empleado: str  # ✅
+    rol: str
+    # rut: str  ← NUNCA aquí</div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-icon">⛔</div>
+    <div class="rule-title" style="color:var(--orange)">Jefe no aprueba sus propios movimientos</div>
+    <div class="rule-body">Al aprobar un movimiento, verificar que <code>movimiento.id_usuario != usuario_actual.id</code>. Si coincide, retornar 403. Este control es de auditoría interna y es obligatorio.</div>
+    <div class="rule-code">if movimiento.id_usuario == current_user.id:
+    raise HTTPException(403,
+        "No puedes aprobar tus propios movimientos")</div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-icon">🧱</div>
+    <div class="rule-title" style="color:var(--cyan)">Trigger de inmutabilidad en movimiento</div>
+    <div class="rule-body">El trigger PostgreSQL bloquea UPDATE y DELETE en la tabla movimiento. Si cometiste un error, registra un movimiento de tipo <code>correccion</code> con <code>id_movimiento_original</code>. El historial nunca se toca.</div>
+    <div class="rule-code">tipo = "correccion"
+id_movimiento_original = "uuid-del-original"
+# El trigger rechazará cualquier UPDATE directo</div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-icon">📋</div>
+    <div class="rule-title" style="color:var(--green)">Campos SERNAPESCA siempre obligatorios en entradas</div>
+    <div class="rule-body">En el schema MovimientoCreate, cuando <code>tipo == "entrada_proveedor"</code> los campos numero_lote, fecha_vencimiento, nombre_proveedor, num_guia_despacho y registro_sanitario son obligatorios. Para veterinarios agregar num_receta_retenida.</div>
+    <div class="rule-code">@validator("numero_lote")
+def lote_required_for_entrada(cls, v, values):
+    if values.get("tipo") == "entrada_proveedor":
+        if not v:
+            raise ValueError("Obligatorio SERNAPESCA")
+    return v</div>
+  </div>
+
+</div>
+
+<!-- CHECKLIST FINAL -->
+<div class="checklist">
+  <div class="checklist-title">✅ Checklist antes de conectar el Frontend</div>
+  <div class="check-cols">
+    <div>
+      <div class="check-group-title">Seguridad</div>
+      <div class="check-item"><div class="check-box"></div>RUT nunca aparece en responses</div>
+      <div class="check-item"><div class="check-box"></div>Rate limiting en /auth/login</div>
+      <div class="check-item"><div class="check-box"></div>Todos los endpoints tienen guard de rol</div>
+      <div class="check-item"><div class="check-box"></div>SECRET_KEY en .env, no hardcodeada</div>
+      <div class="check-item"><div class="check-box"></div>Swagger desactivado si ENVIRONMENT=production</div>
+      <div class="check-item"><div class="check-box"></div>CORS configurado solo para el dominio del frontend</div>
+    </div>
+    <div>
+      <div class="check-group-title">Base de Datos</div>
+      <div class="check-item"><div class="check-box"></div>Trigger de inmutabilidad activo</div>
+      <div class="check-item"><div class="check-box"></div>Índices creados (numero_lote, fecha_vencimiento, estado)</div>
+      <div class="check-item"><div class="check-box"></div>Seed ejecutado correctamente</div>
+      <div class="check-item"><div class="check-box"></div>Alembic migrations al día</div>
+      <div class="check-item"><div class="check-box"></div>Backups configurados en DigitalOcean</div>
+    </div>
+    <div>
+      <div class="check-group-title">Funcionalidades</div>
+      <div class="check-item"><div class="check-box"></div>Login + token funcionando</div>
+      <div class="check-item"><div class="check-box"></div>Flujo movimiento completo probado</div>
+      <div class="check-item"><div class="check-box"></div>WebSocket de alertas probado con wscat</div>
+      <div class="check-item"><div class="check-box"></div>Endpoint sync offline probado con conflicto</div>
+      <div class="check-item"><div class="check-box"></div>Trazabilidad de lote responde en &lt;2 segundos</div>
+      <div class="check-item"><div class="check-box"></div>PDF y Excel exportables sin errores</div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

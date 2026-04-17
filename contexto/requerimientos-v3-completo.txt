@@ -1,0 +1,418 @@
+﻿
+Especificación de Requerimientos del Sistema
+Sistema de Gestión de Inventario 3D para Empresa Salmonera
+
+NOMBRES:
+Gueremy Barrientos · Bastián Riffo · Sebastián Bravo
+CARRERA:
+Ingeniería en Informática
+ASIGNATURA:
+Proyecto de Título
+PROFESOR:
+Rodrigo Ruiz
+FECHA:
+Abril 2026
+VERSIÓN:
+3.0 — Incluye análisis de competencia, FODA, SMART y objetivos del proyecto
+
+1. Objetivos del Proyecto
+1.1 Objetivo General
+Objetivo General
+Desarrollar un sistema web de gestión de inventario con visualización 3D interactiva, orientado a empresas salmoneras de la Región de Los Lagos, que permita controlar en tiempo real la ocupación de espacios físicos de almacenamiento en múltiples sedes, registrar movimientos de productos con trazabilidad completa conforme a la normativa SERNAPESCA, y generar información estratégica para la toma de decisiones operativas y gerenciales.
+
+1.2 Objetivos Específicos
+    1. Implementar una interfaz de visualización 3D interactiva utilizando React Three Fiber que represente la estructura física real de la empresa (sedes, galpones y contenedores) con un sistema de cinco colores que indique el nivel de ocupación de cada espacio en tiempo real.
+    2. Desarrollar un módulo de gestión de movimientos de inventario (entradas, salidas y traslados) con flujo de aprobación diferenciado por rol, cumplimiento automático de los campos obligatorios exigidos por SERNAPESCA y registro inmutable del historial por un mínimo de cinco años.
+    3. Diseñar e implementar una arquitectura multi-sede con cinco roles de usuario diferenciados (Super Admin, Admin de Sede, Jefe de Bodega, Operario y Gerencia), garantizando el aislamiento de datos por sede y el cumplimiento de la Ley 19.628 de Protección de Datos Personales.
+    4. Incorporar una capa de Inteligencia de Negocios (BI) con un modelo dimensional estrella, proceso ETL automatizado y dashboards diferenciados por nivel organizacional (gerencial, táctico y operativo), utilizando Metabase como herramienta de visualización complementaria.
+    5. Implementar funcionalidades de operación sin conexión a internet (modo offline) mediante tecnología PWA y almacenamiento local con Dexie.js, para garantizar la continuidad operativa en sedes con conectividad inestable como pontones y bodegas remotas.
+    6. Reducir el tiempo de rastreo de lotes ante alertas de calidad o fiscalizaciones de SERNAPESCA desde el promedio actual de 2 a 8 horas a menos de 10 minutos, mediante la función de trazabilidad por número de lote.
+    7. Validar el sistema con usuarios reales de la empresa colaboradora mediante pruebas en terreno, garantizando una curva de aprendizaje máxima de dos horas para operarios y ocho horas para jefes de bodega.
+
+2. Análisis de la Competencia
+El mercado de software de gestión de inventario y WMS (Warehouse Management System) es amplio y cuenta con soluciones para distintos tamaños de empresa. A continuación se analizan las principales alternativas que podrían considerarse para el contexto de una empresa salmonera de la Región de Los Lagos.
+
+2.1 Todoist
+Aspecto
+Descripción
+Tipo
+Aplicación de gestión de tareas y productividad personal
+Funcionalidades principales
+Listas de tareas, recordatorios, etiquetas, integración con calendarios, colaboración en equipo
+Modelo de datos
+Proyectos, tareas y subtareas con fechas de vencimiento y prioridades
+Integraciones
+Google Calendar, Slack, Zapier, GitHub, entre otros
+Plataformas
+iOS, Android, Web, Windows, Mac
+Costo
+Plan gratuito limitado; plan Pro desde USD 4/mes; plan Business desde USD 6/usuario/mes
+Usuarios objetivo
+Profesionales individuales, pequeños equipos, estudiantes
+Modo offline
+Sí, sincroniza al recuperar conexión
+Limitaciones para el proyecto
+No es un WMS. No gestiona inventario físico, movimientos de stock ni espacios de almacenamiento. No tiene trazabilidad de lotes ni cumplimiento normativo SERNAPESCA. No contempla visualización espacial ni multi-sede industrial.
+
+2.2 SAP Warehouse Management (SAP WM / SAP EWM)
+Aspecto
+Descripción
+Tipo
+Módulo de gestión de almacenes dentro del ecosistema SAP ERP (ahora SAP S/4HANA)
+Funcionalidades principales
+Gestión de ubicaciones de almacén, entradas y salidas de mercancía, traslados internos, etiquetado, gestión de lotes, inventario cíclico, optimización de rutas de picking, integración con ERP completo (finanzas, compras, ventas, producción)
+Cumplimiento normativo
+Alto. Soporta múltiples normativas internacionales. Trazabilidad de lotes y números de serie.
+Visualización
+Reportes tabulares y gráficos básicos. Sin visualización 3D de los espacios.
+Multi-sede
+Sí, soporta múltiples plantas y almacenes.
+Modo offline
+Limitado. Requiere conectividad estable.
+Costo
+Muy alto. Licencias desde USD 100.000+ para implementación inicial. Consultoría SAP requerida. Costo de mantenimiento anual elevado.
+Integración con SAP
+Nativa (es el mismo ecosistema). Ya utilizado por la empresa salmonera para contabilidad.
+Tiempo de implementación
+6 a 18 meses con equipo de consultores especializados.
+Limitaciones para el proyecto
+Costo prohibitivo para una Pyme salmonera mediana. Sin visualización 3D. Interfaz compleja para operarios en terreno. No está diseñado para la operación específica de pontones ni para campos SERNAPESCA del sector acuicultor chileno.
+
+2.3 WMS Genérico (Infor WMS, Deposco, Manhattan)
+Aspecto
+Descripción
+Tipo
+Sistemas de gestión de almacenes de nivel empresarial, independientes de ERP
+Funcionalidades principales
+Recepción, ubicación, picking, despacho, gestión de lotes y series, inventario cíclico, soporte a lectores de código de barras y RF, gestión de métodos FEFO/FIFO, dashboards de productividad
+Cumplimiento normativo
+Alto en normativas logísticas internacionales. Adaptable a regulaciones locales con configuración.
+Visualización espacial
+Algunos WMS incluyen mapas 2D de bodegas. Ninguno incluye visualización 3D interactiva de nivel consumer.
+Adaptación al sector acuicultor
+Baja. Son soluciones genéricas para logística industrial. No contemplan pontones, normativa SERNAPESCA ni campos SAG para medicamentos veterinarios.
+Modo offline
+Variable según el producto. Generalmente requieren conectividad.
+Costo
+Desde USD 30.000 hasta USD 200.000+ según el proveedor y la cantidad de usuarios.
+Limitaciones para el proyecto
+Alto costo de implementación y adaptación. Sin visualización 3D. No contempla la estructura física específica de una salmonera (pontones, zonas de cuarentena SERNAPESCA, separación alímento-químico). Requiere consultores externos para configuración.
+
+2.4 Fishbowl Inventory
+Aspecto
+Descripción
+Tipo
+Software de gestión de inventario para Pymes, popular en mercados anglosajones
+Funcionalidades principales
+Control de inventario multi-ubicación, órdenes de compra y venta, manufactura básica, integración con QuickBooks, lectores de código de barras, gestión de lotes y números de serie
+Multi-sede
+Sí, soporta múltiples ubicaciones de almacenamiento.
+Visualización espacial
+No. Gestión tabular sin representación visual de los espacios.
+Adaptación al sector acuicultor
+Nula. No contempla ningún aspecto regulatorio del sector salmonero chileno.
+Modo offline
+No. Requiere conexión continua al servidor.
+Idioma y localización
+Inglés principalmente. Adaptación al mercado chileno limitada.
+Costo
+USD 4.395 pago único por licencia perpetua + soporte anual adicional.
+Limitaciones para el proyecto
+Sin visualización 3D. Sin cumplimiento SERNAPESCA. Sin modo offline. Sin adaptación al contexto de pontones ni a la operación acuicultora. Interfaz en inglés.
+
+2.5 ERPs del Sector Acuicultor
+Aspecto
+Descripción
+Tipo
+Sistemas ERP especializados en el sector acuicola y salmonero. Ejemplos: AquaSoft, FishSoft, IntraFish Systems, módulos WMS de ERPs salmonería nacionales.
+Funcionalidades principales
+Gestión de ciclos productivos (biomasa, alimentación, cosecha), control de inventario de insumos, integración con registros SERNAPESCA, gestión de guías de despacho, seguimiento sanitario
+Cumplimiento SERNAPESCA
+Alto. Algunos generan directamente los formularios de trazabilidad exigidos.
+Visualización espacial de bodega
+Nula o muy básica. Los módulos de inventario son tabulares. Ninguno tiene visualización 3D de contenedores.
+Gestión específica de bodega
+Variable. La mayoría se enfoca en el ciclo productivo y no en la logística interna de bodegas.
+Modo offline
+Generalmente no. Diseñados para conectividad estática en tierra.
+Costo
+Variable. Implementaciones desde USD 20.000 hasta USD 150.000 según el proveedor y el tamaño de la empresa.
+Limitaciones para el proyecto
+Se enfocan en el ciclo productivo y no en la gestión espacial de inventario de bodega. Sin visualización 3D. Sin modo offline para pontones. Interfaces complejas no adaptadas para operarios de terreno con perfil digital básico.
+
+2.6 Cuadro Comparativo con el Sistema Propuesto
+Característica
+Todoist
+SAP WM
+WMS Genérico
+Fishbowl
+ERPs Acuicultor
+Nuestro Sistema
+Visualización 3D de bodegas
+❌
+❌
+❌
+❌
+❌
+✅
+Modo offline (pontones)
+✅
+❌
+⚠️
+❌
+❌
+✅
+Cumplimiento SERNAPESCA
+❌
+⚠️
+⚠️
+❌
+✅
+✅
+Multi-sede (ponton+planta+bodega)
+❌
+✅
+✅
+✅
+⚠️
+✅
+Diseñado para acuicultura chilena
+❌
+❌
+❌
+❌
+⚠️
+✅
+Costo accesible para Pyme
+✅
+❌
+❌
+⚠️
+❌
+✅
+Interfaz simple para operarios
+✅
+❌
+❌
+⚠️
+❌
+✅
+Lector QR desde tablet
+❌
+⚠️
+⚠️
+✅
+⚠️
+✅
+Dashboard BI integrado
+❌
+✅
+✅
+⚠️
+⚠️
+✅
+Optimización de rutas en galpón (FEFO)
+❌
+✅
+✅
+❌
+⚠️
+✅
+Historial inmutable 5 años
+❌
+✅
+✅
+⚠️
+⚠️
+✅
+Implementación < 12 meses
+✅
+❌
+❌
+✅
+❌
+✅
+
+✅ Sí disponible    ⚠️ Parcialmente disponible    ❌ No disponible
+
+3. Análisis FODA del Proyecto
+El siguiente análisis FODA evalúa el estado actual del proyecto considerando todos los elementos definidos hasta la versión 3.0 de la especificación, incluyendo el análisis de competencia, los datos reales de la entrevista con la empresa y las decisiones técnicas adoptadas.
+
+FORTALEZAS (Factores internos positivos)
+    8. Diferenciador técnico único: visualización 3D interactiva de bodegas con React Three Fiber. Ningún competidor analizado ofrece esta funcionalidad para el sector acuicultor.
+    9. Diseñado específicamente para la industria salmonera chilena: contempla pontones, planta y bodega, normativa SERNAPESCA, separación de productos químicos-alimentos y campos obligatorios SAG para medicamentos veterinarios.
+    10. Cliente real validado: la empresa colaboradora (salmonera hermano de Bastián) proporcionó 30 respuestas con datos operativos concretos que fundamentan cada decisión de diseño.
+    11. Modo offline con Dexie.js y PWA: resuelve la necesidad real de operar en pontones con conectividad intermitente, problema que ninguna solución de mercado aborda adecuadamente.
+    12. Capa BI integrada con Metabase: proporciona dashboards gerenciales, tácticos y operativos sin costo adicional de licencias, usando el mismo servidor del sistema.
+    13. Stack tecnológico moderno y conocido por el equipo: React + TypeScript + FastAPI + PostgreSQL permite desarrollo ágil con curva de aprendizaje controlada.
+    14. Cumplimiento legal completo: Ley 19.628 (datos personales), SERNAPESCA (trazabilidad) y Ley 17.336 (propiedad intelectual) contemplados desde el diseño.
+
+OPORTUNIDADES (Factores externos positivos)
+    15. Mercado sin competidor directo: no existe una solución 3D a medida para bodegas de salmoneras en Chile. El sistema cubre una brecha real del mercado.
+    16. Sector salmonero interconectado en Los Lagos: las empresas del rubro se conocen y comparten proveedores. Un cliente satisfecho puede generar referencias directas a otras empresas.
+    17. Potencial de financiamiento CORFO: el programa Capital Semilla financia proyectos tecnológicos innovadores con hasta $70-100 millones CLP para escalamiento, una vez que el sistema cuente con clientes pagadores.
+    18. Tendencia a la digitalización del sector acuicultor: la industria salmonera chilena está en proceso de modernización operativa, impulsada por exigencias de trazabilidad internacional y normativas ambientales crecientes.
+    19. Posibilidad de licencia académica WMS: el profesor facilitó acceso a software WMS para benchmarking, lo que permite incorporar estándares de la industria al diseño.
+    20. Escalabilidad a otras regiones: el modelo multi-sede es aplicable a empresas acuicultoras de las regiones de Los Ríos, Aysén y Magallanes.
+
+DEBILIDADES (Factores internos negativos)
+    21. Equipo part-time: los tres integrantes trabajan en paralelo con clases universitarias, lo que limita la velocidad de desarrollo y aumenta el riesgo de retrasos.
+    22. Curva de aprendizaje en React Three Fiber: la visualización 3D es el componente más complejo y ningún integrante tiene experiencia previa con esta tecnología.
+    23. Single Point of Failure en infraestructura: FastAPI, PostgreSQL y Nginx en un único servidor DigitalOcean. Un fallo del servidor detiene todo el sistema.
+    24. Sin empresa constituida: la operación comercial post-título requiere constituir una SPA o empresa para emitir facturas y firmar contratos formales con clientes.
+    25. Integración SAP pendiente: la empresa utiliza SAP para contabilidad, pero la integración directa no está en el alcance del proyecto de título, limitando el flujo de datos financieros.
+    26. Dependencia de una sola empresa colaboradora: si la empresa retira su colaboración, el proyecto pierde su fuente principal de datos reales y validación.
+
+AMENAZAS (Factores externos negativos)
+    27. Entrada de grandes proveedores: SAP podría desarrollar una versión específica para acuicultura con visualización 3D, utilizando recursos significativamente mayores.
+    28. Cambios normativos SERNAPESCA: una modificación en los campos obligatorios de trazabilidad podría requerir ajustes urgentes en el modelo de datos y la interfaz.
+    29. Resistencia al cambio en los usuarios: el personal de mayor edad (35+) y los trabajadores con menor alfabetización digital pueden resistir la adopción del sistema.
+    30. Inestabilidad del proveedor cloud: DigitalOcean o Railway podrían cambiar sus precios o cerrar operaciones (Railway ya lo hizo en 2023 con su plan gratuito).
+    31. Alta rotación de personal en la empresa: hasta el 30% de los operarios cambia cada 3 meses en temporada alta, lo que requiere capacitaciones frecuentes y puede generar inconsistencias en los datos.
+
+4. Análisis SMART del Proyecto
+El análisis SMART evalúa los objetivos del proyecto bajo cinco criterios: Específico (Specific), Medible (Measurable), Alcanzable (Achievable), Relevante (Relevant) y con Tiempo definido (Time-bound).
+
+Criterio SMART
+Definición
+Aplicación al proyecto
+S — Específico
+El objetivo debe ser claro y preciso, sin ambigüedades.
+El sistema está definido con 52 requerimientos funcionales y 23 no funcionales. El problema específico es la falta de visibilidad espacial del inventario en una salmonera real con 4 sedes, 50 usuarios y productos bajo regulación SERNAPESCA.
+M — Medible
+El éxito debe poder cuantificarse con métricas concretas.
+KPIs concretos: reducir búsqueda de productos de 30 min a <1 min; rastreo de lotes de 2-8 hrs a <10 min; mermas del 1,5% anual a <1%; recuperar +1.000 hrs/año por sede; payback <12 meses. Todos medibles con los datos del sistema.
+A — Alcanzable
+El objetivo debe ser realista con los recursos disponibles.
+El stack tecnológico es conocido por el equipo (excepto R3F que requiere 2-3 semanas de aprendizaje). El costo de operación es de $20.000-$50.000 CLP/mes. La empresa colaboradora ya validó los requerimientos. 12 meses es un plazo realista para el alcance definido.
+R — Relevante
+El objetivo debe tener impacto real para las partes involucradas.
+La industria salmonera es el sector productivo más importante de Los Lagos. El sistema resuelve un problema documentado con impacto financiero cuantificado. La empresa expresamente declaró disposición a recomendarlo a otras empresas del rubro (respuesta 55 de la entrevista).
+T — Tiempo definido
+El objetivo debe tener un plazo claro de cumplimiento.
+Plazo total: 12 meses part-time en 5 fases. Fase 1 (Fundamentos): meses 1-2. Fase 2 (Backend core): meses 2-4. Fase 3 (Frontend + 3D): meses 4-7. Fase 4 (Operacional + offline): meses 7-10. Fase 5 (Cierre + pruebas + deploy): meses 10-12.
+
+4.1 Objetivos SMART específicos del sistema
+Objetivo
+S
+M
+A
+R
+T
+Reducir el tiempo de búsqueda de productos de 30 min a menos de 1 min
+Buscar en la grilla 3D por código o tipo de producto
+Tiempo de respuesta medible en segundos
+La consulta por base de datos está definida en el modelo
+Elimina 15-30 min de trabajo manual por búsqueda
+Disponible desde la Fase 3 (mes 7)
+Rastrear un lote en menos de 10 minutos desde la solicitud
+Búsqueda por número de lote con historial completo
+Tiempo medido desde la solicitud hasta la entrega del informe
+Implementado con índice en numero_lote en PostgreSQL
+Cumplimiento SERNAPESCA. Hoy toma 2-8 horas.
+Disponible desde la Fase 2 (mes 4)
+Reducir mermas de 1,5% a menos de 1% del inventario anual
+FEFO automático + alertas de vencimiento a 30 y 7 días
+KPI de mermas medible mensualmente en el dashboard BI
+Lógica FEFO definida en el modelo de datos y el ETL
+Ahorro financiero cuantificable en el primer año de operación
+Validable en el primer ciclo completo post-implementación
+Recuperar más de 1.000 hrs/año por sede en trabajo manual
+Registro digital reemplaza planillas Excel compartidas
+1.000+ hrs/año validado en entrevista. Medible con logs del sistema.
+Sistema registra todos los movimientos automáticamente
+Impacto directo en costos operativos de la empresa
+Efecto visible desde el mes 1 de operación real
+Lograr payback del sistema en menos de 12 meses
+Ahorro en mermas + horas recuperadas + reducción de multas SERNAPESCA
+Cálculo con datos reales de la empresa (inventario anual, costo hora)
+Validado con datos de la entrevista (respuesta 28)
+Critério de éxito comercial para la empresa colaboradora
+Evaluable al cierre del primer año completo de operación
+
+5. Análisis del Informe de Inteligencia de Negocios
+A continuación se presenta el análisis del informe de BI desarrollado para la asignatura de Inteligencia de Negocios, identificando cómo sus componentes se integran y enriquecen el sistema de inventario.
+
+5.1 Integración de la capa BI con el sistema
+El informe de BI diseñado para la asignatura no es un componente separado del sistema: es la capa analítica que transforma los datos operativos registrados por operarios y jefes de bodega en información estratégica para la gerencia. Sin esta capa, el sistema registra movimientos pero no genera aprendizaje organizacional.
+
+Componente BI
+Rol en el sistema
+Tecnología
+Data Warehouse
+Consolida datos de las 4 sedes en un repositorio histórico único. Historial mínimo de 5 años (SERNAPESCA).
+Esquema separado en PostgreSQL
+Proceso ETL
+Extrae datos nocturnos del sistema operacional, calcula métricas derivadas (% ocupación, días hasta vencimiento, flag FEFO) y carga al DWH.
+APScheduler + Python
+Modelo Estrella
+FACT_MOVIMIENTOS con 5 dimensiones: Tiempo, Contenedor, Producto, Usuario, Sede.
+PostgreSQL (esquema DWH)
+4 Data Marts
+Inventario, Movimientos, Alertas y Cumplimiento SERNAPESCA.
+Vistas o esquemas en PostgreSQL
+Dashboard Gerencial
+KPIs globales multi-sede, tendencias, comparativo entre sedes.
+Metabase (open source, mismo servidor)
+Dashboard Táctico
+Estado de la sede, alertas activas, movimientos pendientes. Usa el mismo sistema de 5 colores del 3D.
+Metabase
+Dashboard Operativo RT
+Alertas críticas en tiempo real, últimos movimientos. Mínimo visual para operarios.
+Recharts + WebSockets (sistema propio)
+Storytelling
+Los dashboards generan narrativas accionables exportables como PDF con logo de la empresa.
+Metabase + reportlab
+
+5.2 KPIs del sistema derivados del análisis BI
+KPI
+Fórmula
+Fuente
+Periodicidad
+% Ocupación por sede
+(Suma ocupación actual / Suma capacidad máx.) × 100
+DM_Ocupación
+Tiempo real
+Pérdidas por vencimiento (%)
+(Cantidad vencida / Stock total período) × 100
+DM_Mermas
+Mensual
+Tiempo rastreo de lote (min)
+Tiempo entre solicitud y confirmación de lote
+DM_Movimientos
+Por evento
+Movimientos fuera horario (%)
+(Mov. fuera horario / Total mov.) × 100
+DM_Movimientos + Dim_Tiempo
+Semanal
+Cumplimiento FEFO (%)
+(Salidas con FEFO / Total salidas) × 100
+DM_Movimientos
+Semanal
+Tiempo aprobación (min)
+Promedio de min entre registro y aprobación
+DM_Movimientos
+Diaria
+Alertas críticas activas
+Conteo de alertas con severidad crítica sin resolver
+Tabla alertas
+Tiempo real
+Espacios en cuarentena
+Conteo containers con estado cuarentena o mantenimiento
+Dim_Contenedor
+Diaria
+
+5.3 Herramienta BI seleccionada: Metabase
+La elección de Metabase en versión open source sobre Power BI y Tableau se basa en tres criterios concretos: (1) costo cero de licencias, instalándose en el mismo servidor DigitalOcean ya contratado; (2) interfaz más intuitiva que las alternativas, permitiendo que administradores de sede creen sus propios reportes sin depender del equipo de desarrollo; (3) compatibilidad nativa con PostgreSQL configurada en minutos. Para el dashboard operativo en tiempo real, se utiliza el módulo de visualización propio del sistema (Recharts + WebSockets), ya que Metabase no está diseñado para actualizaciones instantaneas.
+
+5.4 Storytelling con datos — Ejemplo aplicado
+Narrativa de ejemplo extrada del informe BI
+"Durante el mes de marzo de 2026, se observa en el dashboard gerencial que la Bodega de Insumos de Puerto Montt registró una ocupación promedio del 87%, generando el doble de alertas críticas que cualquier otra sede. Al revisar el detalle, se identifica que el volumen acumulado corresponde a alimentos para peces con vencimiento en las próximas seis semanas. Cruzando ese dato con la tasa de aprobación de salidas (71% vs. 94% del promedio), se detecta un cuello de botella en el proceso de autorización. La acción recomendada es revisar el proceso de aprobación y programar una salida anticipada. De no actuar, el riesgo estimado de pérdidas asciende a $2.800.000 pesos chilenos en productos que vencerían sin ser utilizados."
+
+5.5 Conclusión del análisis BI
+La capa de Inteligencia de Negocios no es un complemento opcional del sistema de inventario: es el componente que cierra el ciclo de valor para la organización. Sin BI, el sistema registra datos pero no genera aprendizaje. Con BI, cada movimiento de un operario en terreno se convierte en un indicador para la gerencia, un patrón analizable para el administrador y una alerta accionable para el jefe de bodega. El diseño propuesto cumple con los cuatro criterios de la evaluación académica: identifica los componentes estándar de BI, presenta un modelo dimensional coherente y bien documentado, aplica buenas prácticas de visualización adaptadas al perfil real de los usuarios, y desarrolla una propuesta comercial completa con costos reales y cronograma realista.
+
+6. Conclusión General
+La versión 3.0 de la especificación del sistema incorpora tres nuevos pilares que fortalecen significativamente el proyecto respecto a versiones anteriores: el análisis de la competencia evidencia que no existe ninguna solución en el mercado que combine visualización 3D, modo offline para pontones y cumplimiento SERNAPESCA en un sistema accesible para una Pyme salmonera; el análisis FODA identifica los riesgos internos más críticos (equipo part-time, Single Point of Failure, curva de aprendizaje 3D) y las oportunidades externas más relevantes (mercado sin competidor directo, potencial CORFO, sector en digitalización); y el análisis SMART confirma que los objetivos del proyecto son específicos, medibles con datos reales de la entrevista, alcanzables con el equipo y stack definidos, relevantes para la industria y acotados en un cronograma de 12 meses.
+
+El diferenciador competitivo central del sistema queda claramente establecido: es el único WMS diseñado específicamente para la infraestructura física real de una salmonera chilena, con visualización 3D interactiva, modo offline para operación en pontones y cumplimiento nativo de la normativa SERNAPESCA. Ningún competidor analizado —Todoist, SAP WM, WMS genéricos, Fishbowl ni ERPs del sector acuicultor— ofrece estas tres características simultáneamente en un producto accesible para una empresa mediana de Los Lagos.

@@ -1,0 +1,29 @@
+# Entornos virtuales
+venv/
+env/
+.env
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# SQLite
+*.sqlite3
+
+# IDEs y Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Entornos generados por herramientas del sistema
+.gemini/
