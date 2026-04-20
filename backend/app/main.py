@@ -11,7 +11,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.api.auth import router as auth_router
+from app.api import api_router
 from app.core.config import settings
 from app.database import engine
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
@@ -43,7 +43,7 @@ app.add_middleware(
 )
 
 # ─── Routers ──────────────────────────────────────────────────────────────────
-app.include_router(auth_router, prefix="/auth", tags=["🔐 Autenticación"])
+app.include_router(api_router)
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────

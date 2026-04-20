@@ -690,16 +690,17 @@ uvicorn app.main:app --reload
 
 ---
 
-### FASE 3 — CRUD Core (Semanas 5-6)
+### FASE 3 — CRUD Core (Semanas 5-6) ← COMPLETADA
 ```
-[ ] Schemas Pydantic v2 para todas las entidades (Create/Read/Update)
-[ ] GET/POST/PATCH/DELETE /sedes (solo Super Admin)
-[ ] GET/POST/PATCH /galpones (filtrar por id_sede del token)
-[ ] GET/POST/PATCH /containers (filtrar por galpon → sede)
-[ ] GET /containers/{id}/qr → imagen QR base64
-[ ] GET /containers/{id}/info-publica → datos para escaneo QR
-[ ] GET/POST/PATCH /productos
-[ ] GET/POST /usuarios + POST /usuarios/{id}/asignar-galpones
+[x] Schemas Pydantic v2 para todas las entidades (Create/Read/Update)
+[x] GET/POST/PATCH/DELETE /sedes (solo Super Admin)
+[x] GET/POST/PATCH /galpones (filtrar por id_sede del token)
+[x] GET/POST/PATCH /containers (filtrar por galpon → sede)
+[x] GET /containers/{id}/qr → imagen QR base64
+[x] GET /containers/{id}/info-publica → datos para escaneo QR
+[x] GET/POST/PATCH /productos (+ Enterprise: /productos/importar CSV)
+[x] GET/POST /usuarios + POST /usuarios/{id}/asignar-galpones
+[x] Enterprise: Tabla LogAuditoria
 ```
 
 **Regla de oro de esta fase:**
@@ -711,7 +712,7 @@ uvicorn app.main:app --reload
 
 ---
 
-### FASE 4 — Movimientos (Semanas 7-8) ← El sprint más importante
+### FASE 4 — Movimientos (Semanas 7-8) ← ESTAMOS AQUÍ
 ```
 [ ] POST /movimientos con validaciones:
     - Campos SERNAPESCA obligatorios en tipo=entrada_proveedor
@@ -789,32 +790,25 @@ uvicorn app.main:app --reload
 
 ## Diagnóstico del Sprint Actual
 
-### Estado al 17 de Abril 2026
+### Estado al 19 de Abril 2026
 
 ```
-FASE 1 — Fundamentos
-  ✅ Python 3.11 instalado
-  ✅ PostgreSQL 15 instalado
-  ✅ Base de datos salmonera_db creada
-  ✅ Usuario salmonera_user creado con privilegios
-  ✅ Entorno virtual configurado
-  ✅ Dependencias instaladas (requirements.txt)
-  ✅ 7 modelos SQLAlchemy escritos:
-       sede.py · galpon.py · container.py · producto.py
-       usuario.py (+ UsuarioGalpon) · movimiento.py · alerta.py
-  ✅ .env configurado con DATABASE_URL y SECRET_KEY
-  ✅ app/core/config.py con pydantic-settings
-  ✅ app/database.py con engine async y Base declarativa
+FASE 1 — Fundamentos (Completada)
+  ✅ Entorno Virtual, SQLAlchemy, BD PostgreSQL
+  ✅ Migraciones Alembic integradas
 
-  ⏳ PENDIENTE INMEDIATO — Semana 1:
-       1. Ejecutar: alembic revision --autogenerate -m "create_all_tables"
-       2. Ejecutar: alembic upgrade head
-       3. Verificar tablas en PostgreSQL: \dt en psql
-       4. Crear trigger de inmutabilidad en tabla movimiento
-       5. Verificar: uvicorn app.main:app --reload sin errores
-       6. Abrir http://localhost:8000/docs → Swagger visible
+FASE 2 — Autenticación (Completada) 
+  ✅ JWT, passlib, roles aplicados
+  
+FASE 3 — CRUD Core (Completada)
+  ✅ Sedes, Galpones, Containers, Productos, Usuarios
+  ✅ Audit Log + Ingesta CSV Masiva + Lógica QR Generador
+  ✅ API Multi-Tenant Protegida
 
-FASE 2 en adelante → NO EMPEZAR hasta completar los 6 puntos anteriores
+  ⏳ PENDIENTE INMEDIATO — FASE 4 (Movimientos):
+       1. Registrar entradas con lógicas SERNAPESCA
+       2. Aislamiento estricto de aprobación (Jefaturas)
+       3. Pruebas de colisión de capacidad vs ocupación
 ```
 
 ### Próximos 3 pasos concretos que debe hacer Claude Code
@@ -822,14 +816,9 @@ FASE 2 en adelante → NO EMPEZAR hasta completar los 6 puntos anteriores
 Cuando el usuario abra Claude Code en la carpeta backend, sugerir en este orden:
 
 ```
-1. "Voy a ejecutar alembic upgrade head para crear las tablas"
-   → si falla, revisar DATABASE_URL en .env y conexión a PostgreSQL
-
-2. "Voy a crear el trigger de inmutabilidad en PostgreSQL"
-   → ejecutar el SQL del trigger directamente via psycopg2
-
-3. "Voy a verificar que uvicorn levanta sin errores"
-   → si hay errores de importación, revisar app/models/__init__.py
+1. "Voy a crear la lógica base de Pydantic para MovimientoCreate validando atributos específicos"
+2. "Voy a implementar la lógica de aprobación donde se sume o reste capacidad"
+3. "Voy a revisar la dependencia para firma electrónica simple en aprobación"
 ```
 
 ---

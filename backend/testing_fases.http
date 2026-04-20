@@ -1,0 +1,132 @@
+@baseUrl = http://localhost:8000
+@adminEmail = super@skretting.cl
+@adminPass = admin123
+
+# ==============================================================================
+#                      TEST DE AUTENTICACION Y ROLES
+# ==============================================================================
+
+### 1. Iniciar sesión y obtener Tokens
+# Al hacer click en Send Request, la respuesta te dará un "access_token"
+# Si usas la extensión REST Client en VSCode, este se guardará en la variable automáticamente
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/x-www-form-urlencoded
+
+username={{adminEmail}}&password={{adminPass}}
+
+###
+
+@token = {{loginAdmin.response.body.access_token}}
+
+### 2. Verificar mi Perfil de Super Admin (GET /auth/me)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+### 3. Prueba de Seguridad (Bloqueo Temporal tras 5 intentos fallidos)
+# Ejecuta esta petición 5 veces. A la quinta, te dirá que la cuenta está bloqueada.
+POST {{baseUrl}}/auth/login
+Content-Type: application/x-www-form-urlencoded
+
+username={{adminEmail}}&password=clave_incorrecta_123
+
+### 4. Recuperar Contraseña / Olvido
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: application/json
+
+{
+    "email": "super@skretting.cl"
+}
+
+
+
+# ==============================================================================
+#                      TEST DE RUTAS CRUD CORE (FASE 3)
+# ==============================================================================
+
+### 5. Crear la Primera Sede (Solo Super Admin)
+# @name crearSede
+POST {{baseUrl}}/sedes/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "nombre": "Planta Pargua Skretting",
+    "tipo": "planta",
+    "ubicacion": "Ruta 5 Sur Km. 1042, Pargua",
+    "latitud": -41.802,
+    "longitud": -73.498,
+    "capacidad_total": 50000
+}
+
+### Extraer ID de la sede creada
+@idSede = {{crearSede.response.body.id}}
+
+### 6. Listar Sedes
+GET {{baseUrl}}/sedes/
+Authorization: Bearer {{token}}
+
+
+### 7. Crear el primer Galpón en esa Sede (Grilla de 10x10)
+# @name crearGalpon
+POST {{baseUrl}}/galpones/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "nombre": "Galpón de Químicos 1",
+    "codigo": "G-Q1",
+    "id_sede": "{{idSede}}",
+    "filas": 10,
+    "columnas": 10
+}
+
+### Extraer ID del Galpón
+@idGalpon = {{crearGalpon.response.body.id}}
+
+
+### 8. Crear un Container en el Galpón (Posición fila 1, col 1)
+# @name crearContainer
+POST {{baseUrl}}/containers/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "codigo": "CONT-X99",
+    "id_galpon": "{{idGalpon}}",
+    "posicion_fila": 1,
+    "posicion_col": 1,
+    "estado": "disponible",
+    "tipo_producto_permitido": "quimico",
+    "capacidad_max": 1000.0,
+    "unidad_medida": "Kg"
+}
+
+### Extraer ID del container
+@idContainer = {{crearContainer.response.body.id}}
+
+
+### 9. Feature Enterprise: Obtener Código QR base64 del Container (¡Cero lag!)
+GET {{baseUrl}}/containers/{{idContainer}}/qr
+Authorization: Bearer {{token}}
+
+
+### 10. Crear un Producto Individualmente
+POST {{baseUrl}}/productos/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "nombre": "Peróxido de Hidrógeno 50%",
+    "codigo_barras": "QUI-PER-50",
+    "categoria": "quimico",
+    "descripcion": "Desinfectante grado industrial",
+    "unidad_medida": "Lts",
+    "stock_minimo": 200.0
+}
+
+
+### 11. Feature Enterprise: Endpoint para INYECCIÓN MASIVA CSV
+# Ojo: En REST Client nativo no es fácil mandar multipart/form-data con archivo binario sin un archivo.
+# Pero el endpoint existe: POST /productos/importar
+# Usarlo desde Postman adjuntando un cvs formateado.

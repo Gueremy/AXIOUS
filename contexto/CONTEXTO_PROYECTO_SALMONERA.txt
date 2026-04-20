@@ -1,0 +1,1035 @@
+================================================================================
+CONTEXTO COMPLETO DEL PROYECTO — SISTEMA DE GESTIÓN DE INVENTARIO 3D
+PARA EMPRESA SALMONERA (SKRETTING / LOS LAGOS)
+================================================================================
+Versión: FINAL — Abril 2026
+Equipo: Gueremy Barrientos (coordinador) · Bastián Riffo · Sebastián Bravo
+Institución: INACAP — Ingeniería en Informática — Región de Los Lagos, Chile
+Asignatura: Proyecto de Título
+Profesor: Rodrigo Ruiz
+================================================================================
+
+
+================================================================================
+SECCIÓN 1 — QUÉ ES EL PROYECTO
+================================================================================
+
+Aplicación web de gestión de inventario con visualización 3D interactiva para
+empresas salmoneras de la Región de Los Lagos, Chile.
+
+El sistema permite navegar por la infraestructura física en 4 niveles:
+  1. Vista Global → mapa con todas las sedes de la empresa
+  2. Sede → representación 3D del espacio (pontón / planta / bodega)
+  3. Galpón → grilla 3D de contenedores con colores de ocupación en tiempo real
+  4. Contenedor → panel detalle con contenido, lote, historial y alertas
+
+Tipos de sede:
+  - Embarcación / Pontón: centro de cultivo en agua, conectividad intermitente
+  - Planta de procesamiento: en tierra
+  - Bodega de insumos y materiales
+
+El cliente real es la empresa salmonera donde trabaja un familiar de Bastián.
+La empresa validó todos los requerimientos con una entrevista de 55 preguntas.
+
+
+================================================================================
+SECCIÓN 2 — EL PROBLEMA QUE RESUELVE (datos reales de entrevista)
+================================================================================
+
+CAUSA RAÍZ: No existe visibilidad espacial del inventario. Todo se maneja en
+Excel con usuario/contraseña compartido entre todos los trabajadores, sin
+trazabilidad de quién hizo qué.
+
+Problemas cuantificados:
+  - Búsqueda de productos: 15 a 30 minutos por búsqueda (debe bajar a <1 min)
+  - Discrepancias stock físico vs digital: al menos 1 vez por semana
+  - Rastreo de lote ante contaminación: 2 a 8 horas (debe bajar a <10 minutos)
+  - Horas perdidas en planillas Excel: +1.000 horas/año por sede
+  - Mermas por mala organización: ~1,5% del inventario anual
+  - Nomenclatura de espacios no estandarizada: se implementa desde cero
+  - Payback estimado del sistema: menos de 12 meses
+
+La empresa expresó disposición explícita a recomendar el sistema a otras
+empresas del rubro si funciona bien (respuesta 55 de la entrevista).
+
+
+================================================================================
+SECCIÓN 3 — STACK TECNOLÓGICO DEFINITIVO (NO CAMBIAR)
+================================================================================
+
+FRONTEND:
+  - React 18 + TypeScript 5
+  - React Three Fiber 8 + @react-three/drei 9 (motor 3D)
+  - Zustand 4 (estado global)
+  - TanStack Query 5 (caché y fetching)
+  - TanStack Table 8 (tablas con virtualización)
+  - React Router 6
+  - Tailwind CSS 3
+  - Recharts 2 (gráficos dashboard)
+  - Dexie.js 3 (IndexedDB para modo offline)
+  - @zxing/browser 0.1.4 (lector QR desde cámara tablet)
+  - jsPDF + jspdf-autotable (exportación PDF)
+  - SheetJS xlsx 0.18.5 EXACTO (última versión open source, no actualizar)
+  - Vite PWA Plugin (Service Worker + Workbox)
+
+BACKEND:
+  - FastAPI 0.110.0 + Python 3.11+
+  - SQLAlchemy 2.x async + asyncpg (NUNCA psycopg2, bloquea el event loop)
+  - Alembic (migraciones)
+  - python-jose 3.3.0 + HS256 (NUNCA ECDSA por CVE-2024-33663)
+  - passlib[bcrypt] cost factor 12
+  - APScheduler 3.x (ETL nocturno, alertas programadas, 1 solo worker)
+  - WebSockets nativos de FastAPI
+  - reportlab (PDF)
+  - openpyxl (Excel)
+
+BASE DE DATOS:
+  - PostgreSQL 15+
+  - 9 tablas: sede, galpon, container, producto, usuario, usuario_galpon,
+    movimiento, alerta, log_auditoria
+
+INFRAESTRUCTURA:
+  - Frontend: Vercel (deploy automático desde GitHub)
+  - Backend: DigitalOcean Droplet Ubuntu 22.04, São Paulo
+  - Proxy: Nginx 1.24+ con SSL, rate limiting, headers de seguridad
+  - BI: Metabase OSS (mismo servidor, sin costo de licencia)
+  - Monitoreo: Sentry free tier + UptimeRobot
+
+VERSIONES FIJADAS CRÍTICAS (no usar ^ en package.json):
+  - three: "0.163.0" (breaking changes frecuentes en minor versions)
+  - xlsx: "0.18.5" (versiones >0.18.x son de pago)
+  - @zxing/browser: "0.1.4" (repositorio con baja actividad desde 2023)
+  - python-jose: "3.3.0" (fijar por CVE-2024-33663)
+
+
+================================================================================
+SECCIÓN 4 — MODELO DE DATOS COMPLETO (9 tablas)
+================================================================================
+
+SEDE
+  id_sede (PK UUID), nombre, tipo (embarcacion/planta/bodega)
+  ubicacion, capacidad_total, estado, color_primario, fecha_creacion
+
+GALPON
+  id_galpon (PK UUID), id_sede (FK), nombre, codigo (ej: G1)
+  largo_metros, ancho_metros, filas_containers, columnas_containers, estado
+
+CONTAINER
+  id_container (PK UUID), id_galpon (FK), codigo (ej: G1-C04)
+  posicion_fila, posicion_columna, capacidad_max, unidad_medida
+  ocupacion_actual (calculado al aprobar movimientos)
+  estado → disponible / medio / critico / mantenimiento / cuarentena
+  tipo_producto_permitido (alimento / quimico / veterinario / equipo / etc.)
+  temperatura_requerida, fecha_ultimo_movimiento
+
+PRODUCTO
+  id_producto (PK UUID), nombre
+  categoria → alimento / quimico / veterinario / equipo / repuesto / general
+  codigo_barras, unidad_medida, temperatura_requerida, stock_minimo, activo
+
+USUARIO
+  id_usuario (PK UUID), nombre, email, password_hash
+  rut → SOLO para almacenamiento interno. NUNCA aparece en responses API.
+  codigo_empleado → se usa en reportes externos en lugar de nombre/RUT
+  rol → super_admin / admin_sede / jefe_bodega / operario / gerencia
+  id_sede (FK), galpones_asignados[], turno (A/B), activo, fechas
+
+USUARIO_GALPON (tabla pivot N:M)
+  id_usuario (FK), id_galpon (FK)
+  Permite asignar operarios a galpones específicos
+
+MOVIMIENTO (NUNCA se edita ni elimina — trigger PostgreSQL lo bloquea)
+  id_movimiento (PK UUID)
+  id_container (FK), id_container_destino (FK, solo traslados)
+  id_usuario (FK), id_usuario_aprobador (FK)
+  id_producto (FK)
+  tipo → entrada_proveedor / salida_produccion / traslado_interno / correccion
+  cantidad, estado → pendiente / aprobado / rechazado
+  --- Campos SERNAPESCA obligatorios en entradas: ---
+  numero_lote, fecha_fabricacion, fecha_vencimiento
+  rut_proveedor (solo interno), nombre_proveedor
+  numero_guia_despacho, temperatura_almacen, registro_sanitario
+  --- Campos SAG adicionales para veterinarios: ---
+  numero_receta_retenida, numero_autorizacion_sag
+  --- Control y auditoría: ---
+  fecha_hora, fecha_aprobacion, motivo_rechazo, observaciones
+  origen → online / offline_sync
+  id_movimiento_original (solo para correcciones, apunta al movimiento original)
+
+ALERTA
+  id_alerta (PK UUID), id_container (FK)
+  tipo → ver los 8 tipos en Sección 8
+  severidad → critica / aviso / informativa
+  descripcion, estado → activa / revisada / resuelta
+  id_usuario_revision (FK), fecha_generacion, fecha_revision
+
+LOG_AUDITORIA
+  id_log (PK UUID), id_usuario (FK)
+  accion, tabla_afectada, id_registro
+  ip_origen, timestamp
+  Retención mínima: 2 años (Ley 19.628)
+
+
+================================================================================
+SECCIÓN 5 — SISTEMA DE COLORES (5 estados de container)
+================================================================================
+
+VERDE      Disponible    0% - 40% de ocupación    Acepta ingresos
+AMARILLO   Medio         41% - 79%                Monitorear
+ROJO       Crítico       80% - 100%               Alerta activa automática
+GRIS       Mantenimiento Estado manual            Fuera de operación
+MORADO     Cuarentena    Estado manual            Retenido SERNAPESCA o calidad
+
+Los estados GRIS y MORADO fueron solicitados explícitamente en la entrevista.
+Son frecuentes en la operación real de pontones.
+
+
+================================================================================
+SECCIÓN 6 — ROLES Y USUARIOS (5 roles)
+================================================================================
+
+SUPER ADMIN (1 usuario)
+  Acceso global a todas las sedes.
+  PUEDE: crear sedes, admins, reportes globales, configuración total.
+  Dispositivo: PC escritorio.
+
+ADMIN DE SEDE (4 usuarios, uno por sede)
+  Acceso solo a su sede.
+  PUEDE: gestionar su sede, crear jefes y operarios, reportes de su sede.
+  Dispositivo: PC escritorio.
+
+JEFE DE BODEGA (4 usuarios, uno por sede)
+  Acceso completo a su sede.
+  PUEDE: ver 3D completo, APROBAR O RECHAZAR movimientos, transferir,
+  gestionar alertas, generar reportes de su sede.
+  RESTRICCIÓN CRÍTICA: NO puede aprobar sus propios movimientos.
+  Dispositivo: PC escritorio (i5 2019-2021, 8GB RAM, GPU integrada).
+
+OPERARIO (~40 usuarios totales, asignados a galpones específicos)
+  Acceso solo a los galpones que tiene asignados.
+  PUEDE: ver containers de sus galpones, registrar entradas/salidas
+  (quedan en estado PENDIENTE), realizar traslados simples (auto-aprobados).
+  NO PUEDE: aprobar movimientos, acceder a otras sedes.
+  Alta rotación: hasta 30% de personal nuevo cada 3 meses en temporada.
+  Perfil digital: básico (usan WhatsApp). Algunos son haitianos con
+  español limitado → interfaz debe ser visual, con íconos claros.
+  Dispositivo: tablet o teléfono Android en terreno.
+
+GERENCIA (3 usuarios, solo lectura)
+  PUEDE: ver dashboard de KPIs, comparativo entre sedes, descargar reportes.
+  NO PUEDE: registrar movimientos, aprobar, ni modificar ningún dato.
+  Dispositivo: PC escritorio.
+
+
+================================================================================
+SECCIÓN 7 — FLUJO DE APROBACIÓN DE MOVIMIENTOS
+================================================================================
+
+TRASLADO INTERNO SIMPLE:
+  Operario registra → APROBACIÓN AUTOMÁTICA → inventario actualizado.
+
+ENTRADA DE PROVEEDOR / SALIDA A PRODUCCIÓN:
+  Operario registra → estado PENDIENTE
+  Jefe de Bodega revisa → APRUEBA o RECHAZA (motivo obligatorio si rechaza)
+  Si aprueba → actualizar ocupacion_actual del container + fecha_ultimo_movimiento
+  Si rechaza → notificación al operario con motivo
+
+REGLAS IRRENUNCIABLES:
+  1. Los movimientos NUNCA se eliminan ni editan (trigger PostgreSQL lo bloquea).
+  2. Si hubo un error, se registra un movimiento tipo "correccion" con
+     id_movimiento_original apuntando al movimiento erróneo.
+  3. Historial mínimo de 5 años (exigencia SERNAPESCA).
+  4. El Jefe NO puede aprobar movimientos que él mismo registró.
+     (if movimiento.id_usuario == current_user.id: raise 403)
+
+
+================================================================================
+SECCIÓN 8 — ALERTAS AUTOMÁTICAS (8 tipos)
+================================================================================
+
+#  Tipo                                      Severidad
+1  Container al 80%+ de capacidad            Crítica
+2  Producto vence en 30 días                 Aviso
+3  Producto vence en 7 días                  Crítica
+4  Stock bajo mínimo operacional             Aviso
+5  Movimiento fuera de horario laboral       Crítica
+6  Discrepancia >5% digital vs físico        Crítica
+7  Container sin movimiento por +30 días     Informativa
+8  Container en cuarentena activa            Crítica
+
+Las alertas 1, 3, 5, 6, 8 generan notificación inmediata vía WebSocket al
+Jefe de Bodega y Admin de Sede.
+
+APScheduler ejecuta:
+  - Job nocturno a las 02:00: evalúa vencimientos (tipos 2 y 3) para todos
+    los containers activos.
+  - Job cada 30 minutos: evalúa stock mínimo (tipo 4) y discrepancias (tipo 6).
+  - Evaluación inmediata post-aprobación: evalua_alertas(id_container) se
+    llama automáticamente después de cada movimiento aprobado.
+
+WebSocket: WS /ws/alertas/{id_sede}
+  El Jefe de Bodega se conecta y recibe alertas en tiempo real.
+  Al crear una nueva alerta, se emite el evento a todos los clientes
+  conectados de esa sede via broadcast.
+
+
+================================================================================
+SECCIÓN 9 — MODO OFFLINE (PWA + Dexie.js)
+================================================================================
+
+DECISIÓN: PWA (Progressive Web App) en lugar de app nativa React Native.
+
+Por qué PWA:
+  - Un solo código para web y móvil (sin duplicar desarrollo)
+  - Sin App Store ni Play Store
+  - Actualizaciones instantáneas sin proceso de aprobación
+  - @zxing/browser para QR funciona perfecto en navegador Android
+  - Dexie.js funciona igual de bien que app nativa para guardar offline
+
+Cómo se instala en el teléfono del operario:
+  1. Operario abre Chrome en su Android
+  2. Aparece "Añadir a pantalla de inicio"
+  3. Se instala con ícono propio (igual que cualquier app)
+  4. Funciona sin internet, movimientos se guardan en IndexedDB
+  5. Al volver la conexión → sincronización automática en máximo 30 segundos
+
+Separación por dispositivo:
+  - PC (Jefe de Bodega): Vista 3D completa, dashboard, reportes, aprobaciones.
+  - Tablet/Teléfono (Operario): formulario simple de registro, lista de
+    containers, lector QR, modo offline. Sin 3D pesado.
+
+Base de datos local (Dexie.js — IndexedDB):
+  Tablas: movimientos_offline, containers_cache, productos_cache
+  Campos clave de movimientos_offline:
+    uuid_local (para deduplicación), id_container, id_producto, tipo,
+    cantidad, numero_lote, fecha_vencimiento, nombre_proveedor,
+    num_guia_despacho, registro_sanitario, temperatura_almacen,
+    fecha_hora_local (ISO 8601 con timezone),
+    estado_sync (pendiente / sincronizado / rechazado),
+    motivo_rechazo, intentos_sync (máximo 3 intentos)
+
+Resolución de conflictos al sincronizar:
+  Estrategia: Last-Write-Wins con validación de capacidad.
+  - Si el container ya no tiene capacidad suficiente → RECHAZAR con motivo.
+  - Si el container fue eliminado → RECHAZAR.
+  - Si pasa las validaciones → APLICAR y marcar origen='offline_sync'.
+  El rechazo queda registrado en log_auditoria con motivo específico.
+
+ADVERTENCIA: Dexie.js tiene cuota variable por navegador (~50MB en Chrome).
+  Implementar limpieza automática de movimientos sincronizados después de 7 días.
+
+
+================================================================================
+SECCIÓN 10 — ALGORITMOS IMPLEMENTADOS EN EL BACKEND
+================================================================================
+
+A) FEFO — First Expired, First Out
+   El más importante operativamente.
+   Se ejecuta al recibir solicitud de salida de producto.
+   Consulta containers con el producto en la sede, ordenados por
+   fecha_vencimiento ASC. El lote que vence primero sale primero.
+   Endpoint: GET /movimientos/fefo?id_producto=X&id_sede=Y
+   Complejidad: O(n log n)
+
+B) OPTIMIZACIÓN DE RUTA EN GALPÓN (Picking Path)
+   Dado un pedido con múltiples productos, calcula el recorrido más corto
+   usando posiciones (fila, columna) de la grilla 3D.
+   Algoritmo: Nearest Neighbor con distancia Manhattan.
+   Complejidad: O(n²) — aceptable para n < 50 containers por pedido.
+   Endpoint: GET /movimientos/ruta-picking?containers=[]
+
+C) TRAZABILIDAD DE LOTE (SERNAPESCA)
+   Búsqueda full-text sobre numero_lote usando índice GIN en PostgreSQL.
+   Retorna historial completo: origen → todos los movimientos → ubicación actual.
+   Tiempo objetivo: menos de 10 segundos (hoy toma 2-8 horas).
+   Endpoint: GET /movimientos/trazabilidad?numero_lote=X
+
+D) RESOLUCIÓN DE CONFLICTOS OFFLINE
+   Valida cada movimiento offline contra el estado actual de la BD.
+   Rechaza si: capacidad insuficiente, container eliminado, stock insuficiente.
+   Aplica Last-Write-Wins si pasa validaciones.
+   Endpoint: POST /movimientos/sync (recibe lista de movimientos offline)
+
+
+================================================================================
+SECCIÓN 11 — ÍNDICES POSTGRESQL (crear en migración Alembic)
+================================================================================
+
+1. Búsqueda de lote SERNAPESCA (el más frecuente bajo fiscalización):
+   CREATE INDEX CONCURRENTLY idx_movimiento_numero_lote ON movimiento (numero_lote);
+
+2. GIN para búsqueda de texto parcial:
+   CREATE INDEX CONCURRENTLY idx_movimiento_lote_gin
+   ON movimiento USING gin(to_tsvector('spanish', numero_lote));
+
+3. Alertas activas por sede (dashboard en tiempo real — índice parcial):
+   CREATE INDEX CONCURRENTLY idx_alerta_activa_sede
+   ON alerta (id_container, estado) WHERE estado = 'activa';
+
+4. Movimientos por container y fecha (historial + ETL):
+   CREATE INDEX CONCURRENTLY idx_movimiento_container_fecha
+   ON movimiento (id_container, fecha_hora DESC);
+
+5. Containers por galpón y estado (render 3D):
+   CREATE INDEX CONCURRENTLY idx_container_galpon_estado
+   ON container (id_galpon, estado);
+
+6. Movimientos pendientes (dashboard jefe — índice parcial):
+   CREATE INDEX CONCURRENTLY idx_movimiento_pendiente
+   ON movimiento (estado, fecha_hora DESC) WHERE estado = 'pendiente';
+
+7. Vencimientos próximos (alertas FEFO — índice parcial):
+   CREATE INDEX CONCURRENTLY idx_movimiento_vencimiento
+   ON movimiento (fecha_vencimiento ASC) WHERE estado = 'aprobado';
+
+8. Usuario por email (login):
+   CREATE UNIQUE INDEX idx_usuario_email ON usuario (email);
+
+TRIGGER DE INMUTABILIDAD (crear en migración Alembic):
+   CREATE OR REPLACE FUNCTION fn_protect_movimiento()
+   RETURNS TRIGGER AS $$
+   BEGIN
+     RAISE EXCEPTION 'Los movimientos son inmutables. Use tipo=correccion.';
+   END;
+   $$ LANGUAGE plpgsql;
+
+   CREATE TRIGGER trg_protect_movimiento
+   BEFORE UPDATE OR DELETE ON movimiento
+   FOR EACH ROW EXECUTE FUNCTION fn_protect_movimiento();
+
+
+================================================================================
+SECCIÓN 12 — ENDPOINTS COMPLETOS DE LA API
+================================================================================
+
+AUTH:
+  POST /auth/login          → devuelve access_token JWT (HS256)
+  POST /auth/register       → solo Super Admin puede crear usuarios
+  GET  /auth/me             → perfil del usuario autenticado
+  POST /auth/refresh        → renovar token (refresh token con rotación)
+
+SEDES:
+  GET    /sedes             → lista (solo Super Admin ve todas)
+  GET    /sedes/{id}        → detalle con galpones
+  POST   /sedes             → crear (solo Super Admin)
+  PATCH  /sedes/{id}        → actualizar
+  DELETE /sedes/{id}        → desactivar (soft delete)
+
+GALPONES:
+  GET    /galpones?id_sede=X    → filtrado por sede del token
+  GET    /galpones/{id}         → con lista de containers
+  POST   /galpones              → crear
+  PATCH  /galpones/{id}         → actualizar
+
+CONTAINERS:
+  GET    /containers?id_galpon=X      → datos para render 3D (8 campos mínimos)
+  GET    /containers/{id}             → detalle completo
+  GET    /containers/{id}/qr          → imagen QR base64
+  GET    /containers/{id}/info-publica → datos para escaneo QR (sin sensibles)
+  POST   /containers                  → crear
+  PATCH  /containers/{id}/estado      → cambiar estado (cuarentena, mantenimiento)
+
+MOVIMIENTOS:
+  POST   /movimientos                  → registrar (con validaciones SERNAPESCA)
+  GET    /movimientos/pendientes       → lista para el Jefe de Bodega
+  PATCH  /movimientos/{id}/aprobar     → aprobar (Jefe, no propios)
+  PATCH  /movimientos/{id}/rechazar    → rechazar (motivo obligatorio)
+  GET    /movimientos/trazabilidad?numero_lote=X → historial completo
+  GET    /movimientos/fefo?id_producto=X&id_sede=Y → sugerencia FEFO
+  POST   /movimientos/sync             → sincronizar offline
+  GET    /movimientos/ruta-picking?containers=[] → optimizar recorrido
+
+ALERTAS:
+  GET    /alertas/activas?id_sede=X   → lista para dashboard
+  PATCH  /alertas/{id}/revisar         → marcar revisada
+  PATCH  /alertas/{id}/resolver        → marcar resuelta
+  WS     /ws/alertas/{id_sede}         → WebSocket tiempo real
+
+DASHBOARD / KPIs:
+  GET /dashboard/kpis?id_sede=X              → cards: ocupación, alertas, mermas
+  GET /dashboard/ocupacion-por-galpon?id_sede=X → datos barras Recharts
+  GET /dashboard/evolucion?id_sede=X&dias=30   → datos línea temporal
+  GET /dashboard/comparativo-sedes             → radar multi-sede (Gerencia)
+
+REPORTES:
+  GET /reportes/movimientos/pdf     → PDF con logo empresa, campos SERNAPESCA
+  GET /reportes/movimientos/excel   → Excel para auditores ISO y carga SAP
+  GET /reportes/sernapesca          → formulario oficial campos reglamentarios
+
+USUARIOS:
+  GET  /usuarios?id_sede=X                  → por sede
+  POST /usuarios/{id}/asignar-galpones      → pivot usuario_galpon
+  PATCH /usuarios/{id}                      → actualizar perfil
+  DELETE /usuarios/{id}                     → desactivar (soft delete)
+
+PRODUCTOS:
+  GET  /productos?categoria=X      → catálogo filtrado
+  POST /productos                  → crear
+  PATCH /productos/{id}            → actualizar
+
+
+================================================================================
+SECCIÓN 13 — CAPA BI (INTELIGENCIA DE NEGOCIOS)
+================================================================================
+
+El BI NO es opcional. Es la capa que cierra el ciclo de valor:
+  Sin BI → el sistema registra datos pero no genera aprendizaje organizacional.
+  Con BI → cada movimiento de un operario se convierte en KPI para la gerencia.
+
+COMPONENTES:
+  Data Warehouse: esquema separado en PostgreSQL (schema: dwh)
+  ETL: APScheduler corre job nocturno a las 02:00, extrae datos operacionales,
+       calcula métricas derivadas (% ocupación, días hasta vencimiento, flag FEFO)
+       y carga al DWH.
+
+MODELO ESTRELLA:
+  FACT_MOVIMIENTOS con 5 dimensiones:
+    DIM_TIEMPO, DIM_CONTENEDOR, DIM_PRODUCTO, DIM_USUARIO, DIM_SEDE
+
+4 DATA MARTS:
+  DM_Inventario, DM_Movimientos, DM_Alertas, DM_Cumplimiento_SERNAPESCA
+
+HERRAMIENTA BI: Metabase OSS (mismo servidor DigitalOcean, sin costo licencia)
+  Instalado como Docker container, conectado a PostgreSQL.
+  Permite que administradores de sede creen sus propios reportes sin el equipo.
+
+3 NIVELES DE DASHBOARD:
+  Dashboard Gerencial → KPIs globales multi-sede, tendencias, comparativo sedes.
+  Dashboard Táctico   → Estado de sede, alertas activas, movimientos pendientes.
+  Dashboard Operativo → Alertas críticas en tiempo real vía Recharts + WebSockets.
+
+KPIs PRINCIPALES:
+  % Ocupación por sede = (ocupación actual / capacidad máx) × 100 [tiempo real]
+  Pérdidas por vencimiento = (cantidad vencida / stock total período) × 100 [mensual]
+  Tiempo rastreo de lote = min entre solicitud y confirmación [por evento]
+  Movimientos fuera horario = (mov. fuera horario / total) × 100 [semanal]
+  Cumplimiento FEFO = (salidas con FEFO / total salidas) × 100 [semanal]
+  Tiempo aprobación promedio = promedio min entre registro y aprobación [diaria]
+  Alertas críticas activas = conteo alertas críticas sin resolver [tiempo real]
+  Espacios en cuarentena = conteo containers con estado cuarentena [diaria]
+
+
+================================================================================
+SECCIÓN 14 — SEGURIDAD (OWASP + Ley 19.628)
+================================================================================
+
+LEY 19.628 — PROTECCIÓN DE DATOS PERSONALES (CRÍTICO):
+  El RUT de operarios y proveedores NUNCA aparece en ningún response de la API.
+  NUNCA aparece en logs de Nginx ni de la aplicación.
+  En schemas Pydantic de respuesta, el campo rut simplemente no existe.
+  En reportes externos usar codigo_empleado en lugar de nombre/RUT.
+  Costo de implementación compliance: $1.050.000 CLP año 1 (asesoría legal +
+  implementación técnica encriptación pgcrypto + logs auditoría).
+
+JWT:
+  Algoritmo: HS256 SIEMPRE. NUNCA ECDSA (CVE-2024-33663 en python-jose).
+  Access token: expiración 60 minutos.
+  Refresh token: 7 días, con rotación (cada uso genera uno nuevo).
+  Logout invalida el refresh token en base de datos.
+  SECRET_KEY: mínimo 32 caracteres, generar con: python -c "import secrets; print(secrets.token_hex(32))"
+
+RATE LIMITING:
+  Login: máximo 5 intentos por IP en 5 minutos (slowapi).
+  API general: 30 requests/minuto por IP (Nginx).
+
+OWASP TOP 10 APLICADO:
+  A01 - Broken Access Control: guards require_role() en TODOS los endpoints.
+        Filtrar SIEMPRE por id_sede del token. Nunca datos de otra sede.
+  A02 - Cryptographic Failures: RUT encriptado con pgcrypto. Nunca en logs.
+  A03 - Injection: SQLAlchemy ORM + parámetros bindados. NUNCA text() con
+        input de usuario.
+  A04 - Insecure Design: Jefe no aprueba sus propios movimientos (validado
+        en backend, no solo en frontend).
+  A05 - Security Misconfiguration: Swagger /docs deshabilitado en producción.
+        docs_url=None en ENVIRONMENT=production.
+  A07 - Auth Failures: rate limiting 5/5min en login.
+  A09 - Logging Failures: tabla log_auditoria registra todas las acciones
+        críticas con IP + usuario + timestamp.
+
+NGINX — headers de seguridad en producción:
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'
+  Deshabilitar: /docs, /redoc, /openapi.json → return 404
+
+PYDANTIC VALIDACIONES:
+  numero_lote: solo alfanumérico, guiones y puntos, máximo 50 caracteres.
+  cantidad: mayor que 0, menor que 999.999.
+  @field_validator para cada campo sensible.
+
+BASE DE DATOS — SEGURIDAD:
+  Usuario PostgreSQL de la app: permisos mínimos (no superuser).
+  Usuario separado de solo lectura para Metabase.
+  Backup automático configurado y probado (drill de restauración).
+  Variables de conexión SIEMPRE en .env, nunca hardcodeadas.
+
+MANEJO DE SECRETOS:
+  .env en .gitignore desde el primer commit.
+  .env.example con placeholders (sin valores reales).
+  Verificar: git grep -r "SECRET_KEY" -- "*.py" → debe estar vacío.
+
+FIREWALL DIGITALOCEAN:
+  Solo puertos 80, 443 y 22 (SSH) abiertos.
+  SSH con clave pública, no contraseña.
+  Fail2ban instalado.
+  Let's Encrypt SSL con auto-renovación.
+
+
+================================================================================
+SECCIÓN 15 — CUMPLIMIENTO SERNAPESCA
+================================================================================
+
+CAMPOS OBLIGATORIOS en cada movimiento de ENTRADA (tipo=entrada_proveedor):
+  - numero_lote
+  - fecha_fabricacion
+  - fecha_vencimiento
+  - nombre_proveedor
+  - rut_proveedor (solo interno, NUNCA visible en pantalla)
+  - numero_guia_despacho
+  - temperatura_almacenamiento_requerida
+  - registro_sanitario del producto
+
+ADICIONALES para medicamentos veterinarios:
+  - numero_receta_retenida
+  - numero_autorizacion_sag
+
+SERNAPESCA puede pedir registros de hasta 5 años en fiscalizaciones.
+El historial debe conservarse SIN posibilidad de edición retroactiva.
+El trigger de inmutabilidad en PostgreSQL garantiza esto.
+
+
+================================================================================
+SECCIÓN 16 — SEPARACIÓN DE PRODUCTOS (SEGURIDAD OPERATIVA)
+================================================================================
+
+Un container con tipo_producto_permitido = 'alimento' NO puede recibir
+productos de categoría 'quimico' ni 'veterinario', y viceversa.
+
+Esta validación se implementa en el backend al registrar un movimiento:
+  if producto.categoria != container.tipo_producto_permitido:
+      raise HTTPException(400, "Incompatibilidad de tipo de producto en este container")
+
+Tabla de incompatibilidades (implementar como constante en el backend):
+  INCOMPATIBLE = {
+      'alimento': ['quimico', 'veterinario'],
+      'quimico':  ['alimento', 'veterinario'],
+      'veterinario': ['alimento']
+  }
+
+
+================================================================================
+SECCIÓN 17 — MODELO DE NEGOCIO CON TIERS (ACTUALIZACIÓN FINAL)
+================================================================================
+
+CONTEXTO: El análisis de viabilidad económica identificó que depender de un
+solo cliente era la debilidad más crítica del proyecto. La solución adoptada
+es un modelo de precios por niveles (Tiers) que permite capturar clientes
+de distintos tamaños sin requerir desarrollo adicional.
+
+Los Tiers se implementan con feature flags (variables de entorno o columna
+en la tabla empresa/sede que activa/desactiva funcionalidades). Costo de
+implementación técnica adicional: $0 (configuración, no código nuevo).
+
+──────────────────────────────────────────────────────────
+TIER 1 — BÁSICO
+──────────────────────────────────────────────────────────
+Precio:       $1.800.000 CLP implementación + $120.000 CLP/mes
+Target:       Bodegas pequeñas, empresas con 1 sola sede en tierra
+Incluye:
+  - 1 sede
+  - Hasta 3 galpones
+  - Vista de containers como LISTA (sin visualización 3D)
+  - Movimientos con flujo de aprobación completo
+  - Cumplimiento SERNAPESCA (campos obligatorios)
+  - 2 roles: Jefe de Bodega + Operario
+  - Exportación Excel básica
+No incluye:
+  - Visualización 3D interactiva
+  - Modo offline para pontones
+  - Dashboard BI Metabase
+  - Lector QR desde cámara
+  - Múltiples sedes
+  - Roles Gerencia / Admin Sede / Super Admin
+
+──────────────────────────────────────────────────────────
+TIER 2 — ESTÁNDAR
+──────────────────────────────────────────────────────────
+Precio:       $3.500.000 CLP implementación + $200.000 CLP/mes
+Target:       Plantas de procesamiento en tierra con varias bodegas
+Incluye todo lo del Tier 1 más:
+  - Hasta 3 sedes
+  - Visualización 3D interactiva completa
+  - Lector QR desde cámara (tablet)
+  - Modo offline BÁSICO (sin sincronización para pontones)
+  - 4 roles: Super Admin + Admin Sede + Jefe de Bodega + Operario
+  - Dashboard BI Metabase (solo dashboard táctico y operativo)
+  - Exportación PDF con logo de la empresa
+No incluye:
+  - Modo offline para pontones con conectividad intermitente
+  - Dashboard gerencial multi-sede comparativo
+  - Sedes ilimitadas
+
+──────────────────────────────────────────────────────────
+TIER 3 — PREMIUM
+──────────────────────────────────────────────────────────
+Precio:       $5.500.000 CLP implementación + $280.000 CLP/mes
+Target:       Salmoneras con pontones, múltiples sedes, necesidad de BI
+Incluye todo lo del Tier 2 más:
+  - Sedes ilimitadas (pontones + plantas + bodegas)
+  - Modo offline COMPLETO para pontones con conectividad intermitente
+    (Dexie.js + PWA + sincronización automática al recuperar señal)
+  - 5 roles completos incluyendo Gerencia (solo lectura con KPIs globales)
+  - Dashboard BI Metabase completo (gerencial + táctico + operativo)
+  - Dashboard comparativo multi-sede para Gerencia
+  - Exportación PDF/Excel con campos SERNAPESCA completos
+  - Algoritmo FEFO automático con sugerencia de container
+  - Optimización de ruta de picking en galpón
+  - Historial 5 años garantizado (exigencia SERNAPESCA)
+  - Soporte prioritario
+
+──────────────────────────────────────────────────────────
+PROYECCIÓN DE INGRESOS CON MODELO TIER
+──────────────────────────────────────────────────────────
+
+Año 1 (escenario conservador con ajuste -15% por negociación cliente piloto):
+  1 cliente Tier 3 (ajustado): $5.500.000 × 85% = $4.675.000
+  2 clientes Tier 1:           $1.800.000 × 2   = $3.600.000
+  Mensualidades Tier 3 (4m):   $280.000 × 4     = $1.120.000
+  Mensualidades Tier 1 (4m):   $120.000 × 2 × 4 = $960.000
+  TOTAL INGRESOS AÑO 1:        $10.355.000 CLP
+
+Costos año 1:
+  Asesoría legal Ley 19.628:   $1.050.000 CLP
+  Servidor DigitalOcean:       $600.000 CLP
+  Aprendizaje React Three Fiber: $390.000 CLP
+  TOTAL COSTOS AÑO 1:          $2.040.000 CLP
+
+MARGEN AÑO 1: $10.355.000 - $2.040.000 = $8.315.000 CLP positivo
+PUNTO DE EQUILIBRIO: mes 14 (desplazado desde mes 8 por ajuste -15% y costos legales)
+
+
+================================================================================
+SECCIÓN 18 — RUTA DE DESARROLLO (8 FASES, ORDEN OBLIGATORIO)
+================================================================================
+
+FASE 1 — FUNDAMENTOS (Semanas 1-2) ← POSICIÓN ACTUAL
+  [x] Python 3.11 instalado
+  [x] PostgreSQL 15 instalado y corriendo
+  [x] Base de datos salmonera_db creada
+  [x] Usuario salmonera_user creado con privilegios
+  [x] Entorno virtual configurado
+  [x] Dependencias requirements.txt instaladas
+  [x] 7 modelos SQLAlchemy escritos (sede, galpon, container, producto,
+      usuario, movimiento, alerta)
+  [x] .env configurado con DATABASE_URL y SECRET_KEY
+  [x] app/core/config.py con pydantic-settings
+  [x] app/database.py con engine async y Base declarativa
+  [ ] alembic revision --autogenerate -m "create_all_tables"
+  [ ] alembic upgrade head
+  [ ] Verificar tablas: psql -U salmonera_user -d salmonera_db -c "\dt"
+  [ ] Crear trigger de inmutabilidad en tabla movimiento
+  [ ] uvicorn app.main:app --reload sin errores
+  [ ] http://localhost:8000/docs → Swagger visible
+
+  VERIFICACIÓN ANTES DE PASAR A FASE 2:
+    Los 6 puntos anteriores deben estar completados.
+
+FASE 2 — AUTH JWT (Semanas 3-4)
+  [ ] POST /auth/login → JWT HS256, payload: id_usuario + rol + id_sede
+  [ ] GET /auth/me → perfil del usuario autenticado
+  [ ] Dependencia get_current_user valida token en cada request
+  [ ] Dependencia require_role(roles=[]) bloquea acceso por rol (403)
+  [ ] Rate limiting slowapi: 5 intentos / 5 minutos por IP en /auth/login
+  [ ] POST /auth/register → solo Super Admin crea usuarios
+  [ ] POST /auth/refresh → refresh token con rotación
+
+FASE 3 — CRUD CORE (Semanas 5-6)
+  [ ] Schemas Pydantic v2: 3 por entidad (Create / Read / Update)
+  [ ] NUNCA incluir rut ni password_hash en schemas Read
+  [ ] CRUD /sedes con aislamiento por rol
+  [ ] CRUD /galpones filtrado por id_sede del token
+  [ ] CRUD /containers con validación unicidad (fila, col) por galpón
+  [ ] GET /containers/{id}/qr → imagen QR base64
+  [ ] GET /containers/{id}/info-publica → para escaneo QR
+  [ ] CRUD /productos con 6 categorías
+  [ ] CRUD /usuarios + POST /usuarios/{id}/asignar-galpones
+  [ ] Paginación (skip, limit) en todos los listados
+
+FASE 4 — MOVIMIENTOS (Semanas 7-8) ← SPRINT MÁS IMPORTANTE
+  [ ] POST /movimientos con validaciones completas:
+        - Campos SERNAPESCA obligatorios cuando tipo=entrada_proveedor
+        - Campos SAG adicionales para productos veterinarios
+        - Separación alimento ≠ químico (tabla INCOMPATIBLE)
+        - No superar capacidad_max del container
+        - Vencimiento <30 días genera alerta automática tipo 2
+  [ ] Traslados internos → estado=aprobado automático
+  [ ] Entradas/salidas → estado=pendiente
+  [ ] PATCH /movimientos/{id}/aprobar:
+        - Solo Jefe de Bodega
+        - Validar: movimiento.id_usuario != current_user.id (403 si igual)
+        - Actualizar ocupacion_actual del container
+        - Actualizar fecha_ultimo_movimiento del container
+        - Llamar evaluar_alertas(id_container) post-aprobación
+  [ ] PATCH /movimientos/{id}/rechazar → motivo_rechazo obligatorio
+  [ ] GET /movimientos/pendientes → filtrado por sede del jefe
+
+FASE 5 — ALGORITMOS (Semana 9)
+  [ ] GET /movimientos/fefo → containers por fecha_vencimiento ASC
+  [ ] GET /movimientos/ruta-picking → Nearest Neighbor distancia Manhattan
+  [ ] GET /movimientos/trazabilidad → índice GIN, respuesta en <10 segundos
+  [ ] POST /movimientos/sync → resolver_conflicto() para cada movimiento,
+      marcar origen='offline_sync' en los aprobados
+
+FASE 6 — ALERTAS + WEBSOCKETS (Semana 10)
+  [ ] app/services/alertas.py → evaluar_alertas(id_container) 8 tipos
+  [ ] APScheduler job nocturno 02:00 → vencimientos + sin movimiento
+  [ ] APScheduler job cada 30 min → stock mínimo + discrepancias
+  [ ] WS /ws/alertas/{id_sede} → ConnectionManager broadcast por sede
+  [ ] Emitir evento WebSocket al crear nueva alerta
+  [ ] PATCH /alertas/{id}/revisar y /resolver
+  [ ] GET /alertas/activas?id_sede=X
+
+FASE 7 — DASHBOARD + ETL + REPORTES (Semana 11)
+  [ ] GET /dashboard/kpis → cards con KPIs principales
+  [ ] GET /dashboard/ocupacion-por-galpon → datos Recharts barras
+  [ ] GET /dashboard/evolucion → datos Recharts línea temporal 30 días
+  [ ] GET /dashboard/comparativo-sedes → datos radar multi-sede Gerencia
+  [ ] GET /reportes/movimientos/pdf → reportlab con logo empresa
+  [ ] GET /reportes/movimientos/excel → openpyxl para auditores
+  [ ] GET /reportes/sernapesca → formulario oficial
+  [ ] APScheduler ETL nocturno → carga esquema DWH en PostgreSQL
+
+FASE 8 — SEED + CIERRE BACKEND (Semana 12)
+  [ ] scripts/seed.py con datos completos:
+        1 empresa Skretting
+        4 sedes (1 pontón, 1 planta, 2 bodegas)
+        3 galpones por sede con nomenclatura G1/G2/G3
+        20 containers por galpón con posiciones únicas (código G1-C04)
+        8 usuarios (1 Super Admin, 4 Admin Sede, 4 Jefe Bodega + operarios)
+        50 movimientos con campos SERNAPESCA completos
+  [ ] README.md con instrucciones de instalación
+  [ ] Checklist pre-frontend completo
+
+  VERIFICACIÓN CHECKLIST PRE-FRONTEND:
+    [ ] RUT nunca aparece en ningún response de la API (verificar con Postman)
+    [ ] Rate limiting activo en /auth/login
+    [ ] Todos los endpoints tienen require_role()
+    [ ] Filtro por id_sede en todos los listados
+    [ ] Trigger de inmutabilidad activo (verificar con UPDATE manual que falle)
+    [ ] Índices creados (verificar con \di en psql)
+    [ ] Seed ejecutado y datos visibles en Swagger
+    [ ] Trazabilidad responde en menos de 10 segundos con datos de seed
+    [ ] WebSocket de alertas probado con wscat
+    [ ] Endpoint sync offline probado con movimiento en conflicto
+    [ ] PDF y Excel exportables sin errores
+    [ ] ENVIRONMENT=production → Swagger devuelve 404
+    [ ] Backup automático configurado
+
+
+================================================================================
+SECCIÓN 19 — ERRORES CRÍTICOS A EVITAR
+================================================================================
+
+1. NUNCA usar lazy="dynamic" con async SQLAlchemy → runtime error.
+   Usar lazy="raise" en desarrollo para detectar cargas accidentales.
+
+2. NUNCA mezclar asyncpg y psycopg2.
+   Driver async: asyncpg. psycopg2 bloquea el event loop bajo carga.
+
+3. NUNCA usar APScheduler con más de 1 worker de Uvicorn.
+   En producción: uvicorn --workers 1 hasta migrar a Celery.
+   Con múltiples workers, el scheduler se ejecuta N veces (duplica jobs).
+
+4. NUNCA dejar Swagger accesible en producción.
+   Configurar docs_url=None, redoc_url=None cuando ENVIRONMENT=production.
+
+5. NUNCA usar echo=True en el engine de SQLAlchemy en producción.
+   Genera logs masivos con queries completas (incluye datos sensibles).
+
+6. NUNCA actualizar SheetJS más allá de 0.18.5.
+   Las versiones posteriores son de pago. Fijar versión exacta.
+
+7. NUNCA usar ECDSA con python-jose (CVE-2024-33663).
+   Siempre HS256.
+
+8. NUNCA usar SELECT * en queries.
+   Proyectar solo los campos necesarios. Para el render 3D: 8 campos.
+
+9. NUNCA usar WidthType.PERCENTAGE en tablas Word (si generan reportes).
+   Usar siempre WidthType.DXA para compatibilidad con Google Docs.
+
+10. NUNCA hardcodear credenciales en código fuente.
+    SECRET_KEY, DATABASE_URL y claves siempre en .env (nunca en Git).
+
+
+================================================================================
+SECCIÓN 20 — ESTRUCTURA DE CARPETAS OBLIGATORIA
+================================================================================
+
+backend/
+  app/
+    api/
+      auth.py          → login, register, me, refresh
+      sedes.py         → CRUD sedes
+      galpones.py      → CRUD galpones
+      containers.py    → CRUD containers + QR
+      productos.py     → CRUD productos
+      usuarios.py      → CRUD usuarios + asignar galpones
+      movimientos.py   → registro, aprobación, FEFO, trazabilidad, sync
+      alertas.py       → CRUD alertas + WebSocket
+      dashboard.py     → endpoints KPIs y gráficos
+      reportes.py      → PDF, Excel, SERNAPESCA
+      __init__.py      → api_router que agrupa todos los routers
+    models/
+      sede.py
+      galpon.py
+      container.py
+      producto.py
+      usuario.py       → incluye UsuarioGalpon (pivot)
+      movimiento.py
+      alerta.py
+      log_auditoria.py
+      __init__.py      → importa todos los modelos
+    schemas/
+      sede.py          → SedeCreate, SedeRead, SedeUpdate
+      galpon.py
+      container.py
+      producto.py
+      usuario.py       → NUNCA incluir rut ni password_hash en Read
+      movimiento.py    → con validaciones SERNAPESCA
+      alerta.py
+    services/
+      alertas.py       → evaluar_alertas(id_container)
+      fefo.py          → sugerir_container_fefo()
+      picking.py       → optimizar_ruta_picking()
+      trazabilidad.py  → rastrear_lote()
+      sync.py          → resolver_conflicto_offline()
+      etl.py           → proceso ETL nocturno al DWH
+    core/
+      config.py        → Settings con pydantic-settings (lee .env)
+      security.py      → hash_password, verify_password, create_token, decode_token
+      dependencies.py  → get_current_user, require_role
+    database.py        → engine async, SessionLocal, Base declarativa
+    main.py            → FastAPI app, incluye api_router, configura CORS
+  alembic/
+    versions/          → migraciones autogeneradas
+    env.py             → configuración Alembic
+  scripts/
+    seed.py            → datos de prueba completos
+  tests/
+    test_auth.py
+    test_movimientos.py
+  .env                 → (en .gitignore, NUNCA en Git)
+  .env.example         → placeholders para nuevos desarrolladores
+  requirements.txt     → versiones fijadas sin ^
+  README.md
+
+
+================================================================================
+SECCIÓN 21 — VARIABLES DE ENTORNO (.env)
+================================================================================
+
+DATABASE_URL=postgresql+asyncpg://salmonera_user:TU_PASSWORD@localhost:5432/salmonera_db
+SECRET_KEY=TU_SECRET_KEY_DE_32_CARACTERES_MINIMO_GENERADO_CON_SECRETS
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
+ENVIRONMENT=development
+METABASE_URL=http://localhost:3000
+SENTRY_DSN=tu_dsn_de_sentry_si_aplica
+
+PARA GENERAR SECRET_KEY:
+  python -c "import secrets; print(secrets.token_hex(32))"
+
+
+================================================================================
+SECCIÓN 22 — NORMATIVA LEGAL APLICABLE
+================================================================================
+
+Ley 19.628 — Protección de Datos Personales
+  RUT NUNCA visible en pantalla ni en responses.
+  Operarios en reportes externos = codigo_empleado.
+  Log de auditoría con retención mínima 2 años.
+  Costo compliance: $1.050.000 CLP año 1.
+
+SERNAPESCA
+  Campos obligatorios en cada entrada de producto.
+  Historial 5 años sin edición retroactiva (trigger PostgreSQL).
+  Rastreo de lote en menos de 10 minutos ante fiscalización.
+
+Ley 17.336 — Propiedad Intelectual
+  El software queda protegido como obra del equipo.
+
+SAG — Servicio Agrícola y Ganadero
+  Para medicamentos veterinarios: numero_receta_retenida y
+  numero_autorizacion_sag son obligatorios en movimientos de entrada.
+
+
+================================================================================
+SECCIÓN 23 — ANÁLISIS DE COMPETENCIA (RESUMEN)
+================================================================================
+
+Sistema propuesto vs competidores:
+
+Característica              Todoist  SAP WM  WMS Gen.  Fishbowl  ERP Acuic.  NUESTRO
+Visualización 3D bodegas      NO       NO      NO        NO        NO         SÍ
+Modo offline (pontones)       SÍ       NO      PARC.     NO        NO         SÍ
+Cumplimiento SERNAPESCA       NO       PARC.   PARC.     NO        SÍ         SÍ
+Multi-sede (pontón+planta)    NO       SÍ      SÍ        SÍ        PARC.      SÍ
+Diseñado para acuicultura CL  NO       NO      NO        NO        PARC.      SÍ
+Costo accesible para Pyme     SÍ       NO      NO        PARC.     NO         SÍ
+Interfaz simple operarios     SÍ       NO      NO        PARC.     NO         SÍ
+Dashboard BI integrado        NO       SÍ      SÍ        PARC.     PARC.      SÍ
+
+Ningún competidor analizado ofrece las 3 características simultáneamente:
+  1. Visualización 3D interactiva
+  2. Modo offline para pontones
+  3. Cumplimiento nativo SERNAPESCA
+a un precio accesible para una Pyme salmonera mediana de Los Lagos.
+
+
+================================================================================
+SECCIÓN 24 — INFORMACIÓN RÁPIDA DEL PROYECTO
+================================================================================
+
+Cliente real:       Empresa salmonera familiar (hermano de Bastián Riffo)
+Región:             Los Lagos, Chile (Puerto Montt y alrededores)
+Sedes del cliente:  4 (estimado: 1 pontón, 1 planta, 2 bodegas)
+Usuarios estimados: ~50 (operarios + jefes + admins + gerencia)
+Devices operarios:  Tablet Android en terreno con conectividad intermitente
+
+Inversión de operación del sistema:
+  Mes 1-12:   ~$50.000 CLP/mes (servidor DigitalOcean básico)
+  Desde año 2: ~$100.000 CLP/mes con Managed Database
+
+Payback para el CLIENTE:
+  Ahorro en mermas:    1,5% → <1% del inventario anual
+  Horas recuperadas:   +1.000 horas/año por sede
+  Rastreo de lotes:    2-8 horas → <10 minutos
+  Payback estimado:    <12 meses
+
+Objetivos de usabilidad:
+  Operario:       curva de aprendizaje máxima de 2 horas
+  Jefe de Bodega: curva de aprendizaje máxima de 8 horas
+
+Repositorio:        GitHub (estructura monorepo backend/ + frontend/)
+Deploy Frontend:    Vercel (automático desde GitHub)
+Deploy Backend:     DigitalOcean Droplet Ubuntu 22.04, São Paulo, SLA 99.99%
+
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================
+Este archivo contiene el contexto completo del proyecto al 20 de Abril 2026.
+Fue generado para ser leído por agentes de IA (Claude Code u otros) que
+trabajan en el desarrollo del sistema.
+
+Al iniciar una sesión de desarrollo:
+  1. Leer este archivo completo.
+  2. Verificar en qué fase está el proyecto (Sección 18).
+  3. Reportar el estado: "Estás en Fase X, lo que sigue es..."
+  4. No proponer funcionalidades de fases futuras hasta completar la actual.
+  5. Si detectas algo crítico faltante (trigger, índice, variable .env),
+     señalarlo antes de continuar con cualquier otra tarea.
+================================================================================

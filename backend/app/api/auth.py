@@ -34,7 +34,7 @@ from app.core.security import (
 from app.database import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.usuario import Usuario
-from app.schemas.auth import RefreshRequest, TokenResponse
+from app.schemas.auth import RefreshRequest, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.usuario import UsuarioCreate, UsuarioRead
 
 router = APIRouter()
@@ -81,9 +81,27 @@ async def login(
     usuario = result.scalar_one_or_none()
 
     # 2 & 3. Mensaje idéntico para usuario inexistente o contraseña incorrecta
-    #         → previene enumeración de usuarios (OWASP A07)
     INVALID_MSG = "Credenciales inválidas"
-    if usuario is None or not verify_password(form_data.password, usuario.password_hash):
+    
+    if usuario is not None:
+        if usuario.bloqueo_hasta and usuario.bloqueo_hasta > datetime.now(timezone.utc):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cuenta bloqueada por demasiados intentos. Intente en 15 minutos.")
+            
+        if not verify_password(form_data.password, usuario.password_hash):
+            usuario.intentos_fallidos = (usuario.intentos_fallidos or 0) + 1
+            if usuario.intentos_fallidos >= 5:
+                usuario.bloqueo_hasta = datetime.now(timezone.utc) + timedelta(minutes=15)
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=INVALID_MSG,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # Reseteo de fallos si login exitoso
+        usuario.intentos_fallidos = 0
+        usuario.bloqueo_hasta = None
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=INVALID_MSG,
@@ -247,3 +265,58 @@ async def register(
     await db.commit()
     await db.refresh(nuevo)
     return nuevo
+
+
+# ─── POST /auth/forgot-password ───────────────────────────────────────────────
+@router.post("/forgot-password", summary="Solicitar recuperación de clave")
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Simula el envío de un correo electrónico con un token de recuperación.
+    Siempre devuelve 200 OK para evitar la enumeración de emails.
+    """
+    result = await db.execute(select(Usuario).where(Usuario.email == body.email))
+    usuario = result.scalar_one_or_none()
+    
+    if usuario:
+        token = str(uuid.uuid4())
+        usuario.reset_token = token
+        usuario.reset_token_expire = datetime.now(timezone.utc) + timedelta(hours=1)
+        await db.commit()
+        # TODO: Integración SMTP a futuro. Print simulado:
+        # print(f"Email to {usuario.email}: token={token}")
+
+    return {"mensaje": "Si el correo existe en nuestro sistema, recibirá un enlace de recuperación."}
+
+
+# ─── POST /auth/reset-password ────────────────────────────────────────────────
+@router.post("/reset-password", summary="Restablecer contraseña con token")
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Recibe el token de recuperación y una nueva contraseña.
+    Restablece la cuenta y sus bloqueos anteriores.
+    """
+    result = await db.execute(
+        select(Usuario).where(
+            Usuario.reset_token == body.token,
+            Usuario.reset_token_expire > datetime.now(timezone.utc)
+        )
+    )
+    usuario = result.scalar_one_or_none()
+    
+    if not usuario:
+        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+        
+    usuario.password_hash = get_password_hash(body.new_password)
+    usuario.reset_token = None
+    usuario.reset_token_expire = None
+    usuario.intentos_fallidos = 0
+    usuario.bloqueo_hasta = None
+    
+    await db.commit()
+    return {"mensaje": "Contraseña actualizada exitosamente, ya puede iniciar sesión."}

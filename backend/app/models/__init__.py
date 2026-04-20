@@ -6,10 +6,11 @@ from app.models.usuario import Usuario, UsuarioGalpon
 from app.models.movimiento import Movimiento
 from app.models.alerta import Alerta
 from app.models.refresh_token import RefreshToken
+from app.models.log_auditoria import LogAuditoria
 
 __all__ = [
     "Sede", "Galpon", "Container", "Producto",
     "Usuario", "UsuarioGalpon", "Movimiento", "Alerta",
-    "RefreshToken",
+    "RefreshToken", "LogAuditoria",
 ]
 

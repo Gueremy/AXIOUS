@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import (Column, String, Boolean, ForeignKey,
-                        Enum, DateTime)
+                        Enum, DateTime, Integer)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -31,6 +31,11 @@ class Usuario(Base):
                             server_default=func.now())
     ultimo_acceso  = Column(DateTime(timezone=True),
                             nullable=True)
+    # Seguridad y Recuperación
+    intentos_fallidos = Column(Integer, default=0)
+    bloqueo_hasta     = Column(DateTime(timezone=True), nullable=True)
+    reset_token       = Column(String(255), nullable=True)
+    reset_token_expire= Column(DateTime(timezone=True), nullable=True)
 
     sede         = relationship("Sede", back_populates="usuarios",
                                 lazy="raise")
