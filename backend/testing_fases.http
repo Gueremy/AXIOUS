@@ -112,6 +112,7 @@ Authorization: Bearer {{token}}
 
 
 ### 10. Crear un Producto Individualmente
+# @name crearProducto
 POST {{baseUrl}}/productos/
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -130,3 +131,76 @@ Content-Type: application/json
 # Ojo: En REST Client nativo no es fácil mandar multipart/form-data con archivo binario sin un archivo.
 # Pero el endpoint existe: POST /productos/importar
 # Usarlo desde Postman adjuntando un cvs formateado.
+
+@idProducto = {{crearProducto.response.body.id}}
+
+# ==============================================================================
+#                      TEST DE MOVIMIENTOS LOGISTICOS (FASE 4)
+# ==============================================================================
+
+### 12. Validacion Compliance SERNAPESCA (Forzar un error legal)
+# Manda una entrada_proveedor pero omite la guia de despacho y la fecha_vencimiento
+POST {{baseUrl}}/movimientos/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "id_container": "{{idContainer}}",
+    "id_producto": "{{idProducto}}",
+    "tipo": "entrada_proveedor",
+    "cantidad": 500,
+    "numero_lote": "LOTE-ILEGAL-12"
+}
+
+### 13. Registro Exitoso de Entrada (Quedará Pendiente)
+# @name registrarEntrada
+POST {{baseUrl}}/movimientos/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "id_container": "{{idContainer}}",
+    "id_producto": "{{idProducto}}",
+    "tipo": "entrada_proveedor",
+    "cantidad": 850,
+    "numero_lote": "LOTE-VALIDO-100",
+    "fecha_fabricacion": "2026-04-01T00:00:00Z",
+    "fecha_vencimiento": "2026-10-01T00:00:00Z",
+    "nombre_proveedor": "Proveedor Quimex",
+    "num_guia_despacho": "GUIA-10499",
+    "registro_sanitario": "RES-2026-04",
+    "temperatura_almacen": 12.5
+}
+
+@idMovimiento = {{registrarEntrada.response.body.id}}
+
+### 14. Intentar Auto-Aprobarse (Error de Ciberseguridad esperado)
+PATCH {{baseUrl}}/movimientos/{{idMovimiento}}/aprobar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### 15. Ver lista de Pendientes y su aislamiento Multi-Sede
+GET {{baseUrl}}/movimientos/pendientes
+Authorization: Bearer {{token}}
+
+### 16. Prueba de Sincronizacion Offline (Last Write Wins)
+# En este test, el contenedor X99 solo le caben 150Kg restantes 
+# Porque en la entrada anterior le pusimos 850, y su capacidad era 1000.
+# Simularemos que el operario envia por wifi una orden de meter 200Kg y deberia rechazarla
+POST {{baseUrl}}/movimientos/sync
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  {
+    "uuid_local": "uuid-falso-del-telefono-1",
+    "id_container": "{{idContainer}}",
+    "id_producto": "{{idProducto}}",
+    "tipo": "entrada_proveedor",
+    "cantidad": 200,
+    "numero_lote": "LOTE-OFFLINE"
+  }
+]
+
