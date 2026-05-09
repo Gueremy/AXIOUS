@@ -42,41 +42,41 @@ def upgrade() -> None:
 
     # Trazabilidad SERNAPESCA — busqueda exacta y full-text por lote
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movimiento_numero_lote
+        CREATE INDEX IF NOT EXISTS idx_movimiento_numero_lote
             ON movimiento (numero_lote);
     """)
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movimiento_lote_gin
+        CREATE INDEX IF NOT EXISTS idx_movimiento_lote_gin
             ON movimiento USING gin(to_tsvector('spanish', numero_lote));
     """)
 
     # FEFO — vencimientos proximos (solo aprobados)
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movimiento_vencimiento
+        CREATE INDEX IF NOT EXISTS idx_movimiento_vencimiento
             ON movimiento (fecha_vencimiento ASC) WHERE estado = 'aprobado';
     """)
 
     # Historial por container ordenado por fecha
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movimiento_container_fecha
+        CREATE INDEX IF NOT EXISTS idx_movimiento_container_fecha
             ON movimiento (id_container, fecha_hora DESC);
     """)
 
     # Render 3D — containers por galpon y estado
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_container_galpon_estado
+        CREATE INDEX IF NOT EXISTS idx_container_galpon_estado
             ON container (id_galpon, estado);
     """)
 
     # Dashboard jefe de bodega — pendientes recientes
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movimiento_pendiente
+        CREATE INDEX IF NOT EXISTS idx_movimiento_pendiente
             ON movimiento (estado, fecha_hora DESC) WHERE estado = 'pendiente';
     """)
 
     # Dashboard alertas activas
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_alerta_activa
+        CREATE INDEX IF NOT EXISTS idx_alerta_activa
             ON alerta (id_container, estado) WHERE estado = 'activa';
     """)
 
@@ -85,10 +85,10 @@ def downgrade() -> None:
     op.execute("DROP TRIGGER IF EXISTS trg_movimiento_immutable ON movimiento;")
     op.execute("DROP FUNCTION IF EXISTS prevent_movimiento_update();")
 
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_movimiento_numero_lote;")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_movimiento_lote_gin;")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_movimiento_vencimiento;")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_movimiento_container_fecha;")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_container_galpon_estado;")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_movimiento_pendiente;")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_alerta_activa;")
+    op.execute("DROP INDEX IF EXISTS idx_movimiento_numero_lote;")
+    op.execute("DROP INDEX IF EXISTS idx_movimiento_lote_gin;")
+    op.execute("DROP INDEX IF EXISTS idx_movimiento_vencimiento;")
+    op.execute("DROP INDEX IF EXISTS idx_movimiento_container_fecha;")
+    op.execute("DROP INDEX IF EXISTS idx_container_galpon_estado;")
+    op.execute("DROP INDEX IF EXISTS idx_movimiento_pendiente;")
+    op.execute("DROP INDEX IF EXISTS idx_alerta_activa;")
