@@ -5,6 +5,7 @@ from app.schemas.galpon import GalponCreate, GalponUpdate, GalponRead
 from app.schemas.container import ContainerCreate, ContainerUpdate, ContainerRead
 from app.schemas.producto import ProductoCreate, ProductoUpdate, ProductoRead
 from app.schemas.alerta import AlertaRead, AlertaRevisar, AlertaResolver
+from app.schemas.dashboard import KPIResponse, OcupacionGalponItem, EvolucionItem
 
 __all__ = [
     "LoginRequest", "TokenResponse", "RefreshRequest",

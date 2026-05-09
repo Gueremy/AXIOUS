@@ -29,7 +29,7 @@ pip show python-jose | grep Version  # debe ser 3.3.0
 ## Estado General — Mayo 2026
 
 ```
-Progreso global del backend: 82%
+Progreso global del backend: 100% ✅ COMPLETO
 
 ✅ COMPLETADO (no tocar):
    Fase 1 — Fundamentos    : modelos, BD PostgreSQL, Alembic, entorno virtual
@@ -39,9 +39,9 @@ Progreso global del backend: 82%
    S1 — Hotfix & Fundamentos : python-jose 3.3.0, CORS env, paginación, trigger, indices, seed
    S2 — FEFO + Trazabilidad  : sync real, FEFO, trazabilidad lotes, ruta picking
    S3 — Motor Alertas + WS   : 8 tipos alerta, WebSockets, APScheduler, CRUD alertas
+   S4 — Dashboard + Reportes : KPIs, ocupación por galpón, evolución, PDF, Excel, SERNAPESCA
 
-⏳ PENDIENTE — trabajar en este orden estricto:
-   S4 — Dashboard KPIs + PDF/Excel        ← ARRANCAR AHORA (cierra backend al 100%)
+⏳ PENDIENTE: nada — backend 100% completo
 ```
 
 ---
@@ -60,15 +60,16 @@ backend/
 │   │   ├── usuarios.py     ✅ completo
 │   │   ├── movimientos.py  ✅ completo (sync pendiente — AXI-13)
 │   │   ├── alertas.py      ✅ completo (AXI-17)
-│   │   ├── dashboard.py    ⏳ pendiente S4 (AXI-18)
-│   │   └── reportes.py     ⏳ pendiente S4 (AXI-19)
+│   │   ├── dashboard.py    ✅ completo — KPIs, ocupación, evolución (AXI-18)
+│   │   └── reportes.py     ✅ completo — PDF, Excel, SERNAPESCA (AXI-19)
 │   ├── models/             ✅ 9 modelos completos
-│   ├── schemas/            ✅ completos (+ alerta.py)
+│   ├── schemas/            ✅ completos (alerta.py + dashboard.py)
 │   ├── services/
 │   │   ├── alertas.py      ✅ completo — 8 tipos + deduplicación + batch (AXI-14)
 │   │   ├── fefo.py         ✅ completo (AXI-11)
 │   │   ├── picking.py      ✅ completo (AXI-21)
-│   │   └── sync.py         ✅ completo — inserta real en BD (AXI-13)
+│   │   ├── sync.py         ✅ completo — inserta real en BD (AXI-13)
+│   │   └── reportes.py     ✅ completo — PDF/Excel/SERNAPESCA (AXI-19)
 │   ├── core/
 │   │   ├── config.py       ✅ CORS desde env
 │   │   ├── security.py     ✅
@@ -486,7 +487,7 @@ Al terminar cada sprint → revisión de 15 min antes del siguiente
 ---
 
 *CLAUDE.md — Se actualiza al iniciar cada nuevo sprint*
-*Última actualización: Mayo 2026 — Sprint 3 completado, Sprint 4 activo*
-*Tests: 60/60 PASSED (S1+S2+S3)*
+*Última actualización: Mayo 2026 — Sprint 4 completado — BACKEND 100% ✅*
+*Tests: 82/82 PASSED (S1+S2+S3+S4)*
 *Seguimiento: https://linear.app/axious/project/axious-backend-sistema-inventario-3d-14d0cea7dea3*
 *Buenas prácticas permanentes: ver GUIDELINES.md*
