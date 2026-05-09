@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.container import Container
@@ -36,11 +36,10 @@ async def read_containers(
     if current_user.rol not in ["super_admin", "gerencia"]:
         stmt = stmt.join(Galpon, Container.id_galpon == Galpon.id).where(Galpon.id_sede == current_user.id_sede)
 
-    total_result = await db.execute(stmt)
-    total = len(total_result.scalars().all())
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = await db.scalar(count_stmt)
 
-    stmt = stmt.offset(skip).limit(limit)
-    result = await db.execute(stmt)
+    result = await db.execute(stmt.offset(skip).limit(limit))
     containers = result.scalars().all()
     
     return {

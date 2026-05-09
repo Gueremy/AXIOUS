@@ -1,7 +1,7 @@
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
@@ -32,12 +32,10 @@ async def read_galpones(
     if sede_filter:
         stmt = stmt.where(Galpon.id_sede == sede_filter)
 
-    # Contar total rápido
-    total_result = await db.execute(stmt)
-    total = len(total_result.scalars().all())
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = await db.scalar(count_stmt)
 
-    stmt = stmt.offset(skip).limit(limit)
-    result = await db.execute(stmt)
+    result = await db.execute(stmt.offset(skip).limit(limit))
     galpones = result.scalars().all()
     
     return {

@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -6,6 +7,7 @@ class Settings(BaseSettings):
     DATABASE_URL_SYNC: str
     SECRET_KEY: str
     ENVIRONMENT: str = "development"
+    CORS_ORIGINS: list[str] = Field(default=["http://localhost:5173"])
 
     # JWT
     ALGORITHM: str = "HS256"

@@ -1,7 +1,7 @@
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from datetime import datetime
 
 from app.database import get_db
@@ -11,11 +11,14 @@ from app.models.producto import Producto
 from app.models.galpon import Galpon
 from app.models.sede import Sede
 from app.models.usuario import Usuario
-from app.schemas.movimiento import (MovimientoCreate, MovimientoRead, 
+from app.schemas.movimiento import (MovimientoCreate, MovimientoRead,
                                     MovimientoAprobar, MovimientoRechazar)
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
 from app.services.alertas import evaluar_alertas
+from app.services.fefo import sugerir_container_fefo
+from app.services.picking import obtener_containers_para_picking, optimizar_ruta
+from app.services.sync import procesar_sync
 
 router = APIRouter()
 
@@ -91,9 +94,9 @@ async def create_movimiento(
         movimiento.estado = "aprobado"
         movimiento.fecha_aprobacion = datetime.utcnow()
         container.ocupacion_actual -= mov_in.cantidad
-        container.fecha_ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.utcnow()
         container_dst.ocupacion_actual += mov_in.cantidad
-        container_dst.fecha_ultimo_movimiento = datetime.utcnow()
+        container_dst.ultimo_movimiento = datetime.utcnow()
         # Se evalúan alertas más abajo si es necesario
     else:
         # correcciones u otros
@@ -136,13 +139,13 @@ async def aprobar_movimiento(
         if container.ocupacion_actual + movimiento.cantidad > container.capacidad_max:
             raise HTTPException(status_code=400, detail="Capacidad insuficiente en el contenedor. Otro movimiento lo llenó recientemente.")
         container.ocupacion_actual += movimiento.cantidad
-        container.fecha_ultimo_movimiento = datetime.utcnow()
-        
+        container.ultimo_movimiento = datetime.utcnow()
+
     elif movimiento.tipo == "salida_produccion":
         if container.ocupacion_actual < movimiento.cantidad:
             raise HTTPException(status_code=400, detail="Stock insuficiente en este momento para originar la salida.")
         container.ocupacion_actual -= movimiento.cantidad
-        container.fecha_ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.utcnow()
         
     elif movimiento.tipo == "traslado_interno":
         # Por si alguno llegó como pendiente por un offline sync
@@ -154,8 +157,8 @@ async def aprobar_movimiento(
         
         container.ocupacion_actual -= movimiento.cantidad
         container_dst.ocupacion_actual += movimiento.cantidad
-        container.fecha_ultimo_movimiento = datetime.utcnow()
-        container_dst.fecha_ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.utcnow()
+        container_dst.ultimo_movimiento = datetime.utcnow()
         
 
     movimiento.estado = "aprobado"
@@ -222,28 +225,88 @@ async def read_movimientos_pendientes(
     # Mapeo a Model schema para omitir RUTS (pydantic model configuration)
     return [MovimientoRead.model_validate(m) for m in movimientos]
 
-# Endpoint Offline Sync Placeholder
+@router.get("/fefo")
+async def fefo(
+    id_producto: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+) -> Any:
+    """AXI-11 — Sugiere containers ordenados por fecha_vencimiento ASC (FEFO)."""
+    id_sede = current_user.id_sede
+    if not id_sede:
+        raise HTTPException(status_code=400, detail="El usuario no tiene sede asignada.")
+    resultado = await sugerir_container_fefo(db, id_producto, id_sede)
+    return {"containers_fefo": resultado, "total": len(resultado)}
+
+
+@router.get("/trazabilidad")
+async def trazabilidad(
+    numero_lote: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["jefe_bodega", "admin_sede", "super_admin", "gerencia"])),
+) -> Any:
+    """AXI-12 — Historial completo de un lote (usa indice GIN para < 2s)."""
+    stmt = (
+        select(
+            Movimiento.id,
+            Movimiento.tipo,
+            Movimiento.estado,
+            Movimiento.cantidad,
+            Movimiento.numero_lote,
+            Movimiento.fecha_hora,
+            Movimiento.fecha_vencimiento,
+            Movimiento.nombre_proveedor,
+            Movimiento.num_guia_despacho,
+            Movimiento.registro_sanitario,
+            Movimiento.id_usuario,
+            Movimiento.id_container,
+        )
+        .where(Movimiento.numero_lote == numero_lote)
+        .order_by(Movimiento.fecha_hora.asc())
+    )
+    # Aislamiento multi-sede para roles no globales
+    if current_user.rol not in ("super_admin", "gerencia"):
+        stmt = (
+            stmt
+            .join(Container, Movimiento.id_container == Container.id)
+            .join(Galpon, Container.id_galpon == Galpon.id)
+            .where(Galpon.id_sede == current_user.id_sede)
+        )
+    rows = (await db.execute(stmt)).mappings().all()
+    return {"numero_lote": numero_lote, "movimientos": [dict(r) for r in rows], "total": len(rows)}
+
+
+@router.get("/ruta-picking")
+async def ruta_picking(
+    containers: str = Query(..., description="IDs separados por coma"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+) -> Any:
+    """AXI-21 — Ruta optima de picking (Nearest Neighbor, Manhattan)."""
+    ids = [c.strip() for c in containers.split(",") if c.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="Se requiere al menos un container.")
+    if len(ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximo 50 containers por pedido.")
+    if not current_user.id_sede:
+        raise HTTPException(status_code=400, detail="El usuario no tiene sede asignada.")
+
+    datos = await obtener_containers_para_picking(db, ids, current_user.id_sede)
+    if not datos:
+        raise HTTPException(status_code=404, detail="Ningun container encontrado en tu sede.")
+
+    return optimizar_ruta(datos)
+
+
 @router.post("/sync", status_code=status.HTTP_201_CREATED)
 async def sync_movimientos(
     movimientos_offline: list[dict],
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
 ) -> Any:
-    # 1. Estrategia Last-Write-Wins con mitigación de capacidad.
-    # Esta es una implementación básica del conflicto
-    resultados = []
-    for mov in movimientos_offline:
-        container = (await db.execute(select(Container).where(Container.id == mov["id_container"]))).scalars().first()
-        if not container:
-            resultados.append({"uuid_local": mov["uuid_local"], "accion": "rechazar", "motivo": "Container eliminado"})
-            continue
-            
-        if mov["tipo"] == "entrada_proveedor":
-            if container.ocupacion_actual + float(mov["cantidad"]) > container.capacidad_max:
-                resultados.append({"uuid_local": mov["uuid_local"], "accion": "rechazar", "motivo": f"Sin capacidad. Físicamente quedan {container.capacidad_max - container.ocupacion_actual} unidades."})
-                continue
-        # Implementar la creación segura y devolver OK
-        resultados.append({"uuid_local": mov["uuid_local"], "accion": "aplicar", "motivo": "OK"})
-        
+    """AXI-13 — Sincronizacion offline real. Last-Write-Wins + validacion capacidad."""
+    if not movimientos_offline:
+        return {"resultados": []}
+    resultados = await procesar_sync(movimientos_offline, str(current_user.id), db)
     return {"resultados": resultados}
 

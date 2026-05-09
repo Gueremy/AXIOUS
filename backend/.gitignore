@@ -1,0 +1,46 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Secretos — NUNCA commitear
+.env
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Alembic
+alembic/versions/__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Reportes generados
+*.pdf
+*.xlsx
+
+# Logs
+*.log
+logs/
+
+# mypy / ruff
+.mypy_cache/
+.ruff_cache/
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Build
+dist/
+build/
+*.egg-info/

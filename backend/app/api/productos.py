@@ -3,7 +3,7 @@ import io
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.producto import Producto
@@ -27,11 +27,10 @@ async def read_productos(
     if categoria:
         stmt = stmt.where(Producto.categoria == categoria)
 
-    total_result = await db.execute(stmt)
-    total = len(total_result.scalars().all())
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = await db.scalar(count_stmt)
 
-    stmt = stmt.offset(skip).limit(limit)
-    result = await db.execute(stmt)
+    result = await db.execute(stmt.offset(skip).limit(limit))
     productos = result.scalars().all()
     
     return {
