@@ -19,6 +19,7 @@ from app.services.alertas import evaluar_alertas
 from app.services.fefo import sugerir_container_fefo
 from app.services.picking import obtener_containers_para_picking, optimizar_ruta
 from app.services.sync import procesar_sync
+from app.websockets import manager
 
 router = APIRouter()
 
@@ -109,8 +110,8 @@ async def create_movimiento(
     await log_action(db, current_user.id, "REGISTRAR_MOVIMIENTO", "Movimiento", str(movimiento.id), {"tipo": mov_in.tipo, "estado": movimiento.estado})
     
     if mov_in.tipo == "traslado_interno":
-        await evaluar_alertas(container.id, db)
-        await evaluar_alertas(container_dst.id, db)
+        await evaluar_alertas(container.id, db, manager=manager)
+        await evaluar_alertas(container_dst.id, db, manager=manager)
 
     return movimiento
 
@@ -172,9 +173,9 @@ async def aprobar_movimiento(
     await db.refresh(movimiento)
 
     # Disparar alertas instantáneas post-aprobación
-    await evaluar_alertas(movimiento.id_container, db)
+    await evaluar_alertas(movimiento.id_container, db, manager=manager)
     if movimiento.id_container_destino:
-        await evaluar_alertas(movimiento.id_container_destino, db)
+        await evaluar_alertas(movimiento.id_container_destino, db, manager=manager)
 
     return movimiento
 

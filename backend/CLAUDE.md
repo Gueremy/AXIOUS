@@ -29,20 +29,19 @@ pip show python-jose | grep Version  # debe ser 3.3.0
 ## Estado General — Mayo 2026
 
 ```
-Progreso global del backend: 62%
+Progreso global del backend: 82%
 
 ✅ COMPLETADO (no tocar):
    Fase 1 — Fundamentos    : modelos, BD PostgreSQL, Alembic, entorno virtual
    Fase 2 — Auth JWT       : login, refresh token, roles, rate limiting, bcrypt
    Fase 3 — CRUD Core      : sedes, galpones, containers, productos, usuarios, QR, CSV
    Fase 4 — Movimientos    : flujo completo, aprobación, rechazo, SAG/SERNAPESCA
-              ⚠️ Excepción : POST /movimientos/sync no inserta en BD (AXI-13)
+   S1 — Hotfix & Fundamentos : python-jose 3.3.0, CORS env, paginación, trigger, indices, seed
+   S2 — FEFO + Trazabilidad  : sync real, FEFO, trazabilidad lotes, ruta picking
+   S3 — Motor Alertas + WS   : 8 tipos alerta, WebSockets, APScheduler, CRUD alertas
 
 ⏳ PENDIENTE — trabajar en este orden estricto:
-   S1 — Hotfix & Fundamentos Sólidos      ← ARRANCAR AHORA (semana actual)
-   S2 — FEFO + Trazabilidad + Sync real   (semana 2)
-   S3 — Motor Alertas + WebSockets        (semana 3)
-   S4 — Dashboard KPIs + PDF/Excel        (semana 4 — cierra backend al 100%)
+   S4 — Dashboard KPIs + PDF/Excel        ← ARRANCAR AHORA (cierra backend al 100%)
 ```
 
 ---
@@ -60,30 +59,29 @@ backend/
 │   │   ├── productos.py    ✅ completo
 │   │   ├── usuarios.py     ✅ completo
 │   │   ├── movimientos.py  ✅ completo (sync pendiente — AXI-13)
-│   │   ├── alertas.py      ⏳ pendiente S3 (AXI-17)
+│   │   ├── alertas.py      ✅ completo (AXI-17)
 │   │   ├── dashboard.py    ⏳ pendiente S4 (AXI-18)
 │   │   └── reportes.py     ⏳ pendiente S4 (AXI-19)
 │   ├── models/             ✅ 9 modelos completos
-│   ├── schemas/            ✅ completos
+│   ├── schemas/            ✅ completos (+ alerta.py)
 │   ├── services/
-│   │   ├── alertas.py      ⏳ evaluar_alertas() es solo un pass — AXI-14
-│   │   ├── fefo.py         ⏳ pendiente S2 (AXI-11)
-│   │   ├── picking.py      ⏳ pendiente S2 (AXI-21)
-│   │   └── sync.py         ⏳ no inserta en BD — AXI-13
+│   │   ├── alertas.py      ✅ completo — 8 tipos + deduplicación + batch (AXI-14)
+│   │   ├── fefo.py         ✅ completo (AXI-11)
+│   │   ├── picking.py      ✅ completo (AXI-21)
+│   │   └── sync.py         ✅ completo — inserta real en BD (AXI-13)
 │   ├── core/
-│   │   ├── config.py       ✅ (CORS pendiente fix — AXI-6)
+│   │   ├── config.py       ✅ CORS desde env
 │   │   ├── security.py     ✅
 │   │   ├── audit.py        ✅
 │   │   └── database.py     ✅
-│   ├── websockets.py       ⏳ pendiente S3 (AXI-15)
-│   ├── scheduler.py        ⏳ pendiente S3 (AXI-16)
-│   └── main.py             ✅
-├── alembic/versions/       ✅ 4 migraciones aplicadas
-│                            ⏳ pendiente: trigger + índices (AXI-7, AXI-8)
-├── scripts/seed.py         ⏳ pendiente S1 (AXI-10)
+│   ├── websockets.py       ✅ completo — ConnectionManager (AXI-15)
+│   ├── scheduler.py        ✅ completo — 2 jobs APScheduler (AXI-16)
+│   └── main.py             ✅ v3.0.0 — lifespan + WS endpoint
+├── alembic/versions/       ✅ 5 migraciones (trigger + índices incluidos)
+├── scripts/seed.py         ✅ completo (AXI-10)
 ├── .env                    ✅ existe — NUNCA commitear
-├── .env.example            ⏳ pendiente AXI-20
-├── requirements.txt        ⚠️ python-jose en 3.5.0 — bajar a 3.3.0 (AXI-5)
+├── .env.example            ✅ completo (AXI-20)
+├── requirements.txt        ✅ python-jose==3.3.0 + APScheduler==3.10.4
 ├── CLAUDE.md               ✅ este archivo
 └── GUIDELINES.md           ✅ buenas prácticas permanentes
 ```
@@ -488,6 +486,7 @@ Al terminar cada sprint → revisión de 15 min antes del siguiente
 ---
 
 *CLAUDE.md — Se actualiza al iniciar cada nuevo sprint*
-*Última actualización: Mayo 2026 — Sprint 1 activo*
+*Última actualización: Mayo 2026 — Sprint 3 completado, Sprint 4 activo*
+*Tests: 60/60 PASSED (S1+S2+S3)*
 *Seguimiento: https://linear.app/axious/project/axious-backend-sistema-inventario-3d-14d0cea7dea3*
 *Buenas prácticas permanentes: ver GUIDELINES.md*
