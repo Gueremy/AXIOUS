@@ -8,13 +8,15 @@ Job 2: IntervalTrigger(minutes=30) — stock mínimo y discrepancias
 ⚠️ SIEMPRE ejecutar con --workers 1 (GUIDELINES.md): APScheduler se duplica con más.
 """
 import logging
+from datetime import datetime, timezone
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete
 
 from app.database import AsyncSessionLocal
+from app.models.refresh_token import RefreshToken
 from app.services.alertas import evaluar_alertas_batch
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,21 @@ async def job_periodic_checks():
         logger.error(f"🔄 Job periódico ERROR: {e}", exc_info=True)
 
 
+async def job_cleanup_tokens():
+    """Elimina refresh tokens expirados de la BD."""
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                delete(RefreshToken).where(
+                    RefreshToken.fecha_expiracion < datetime.now(timezone.utc)
+                )
+            )
+            await db.commit()
+            logger.info(f"Cleanup tokens: {result.rowcount} tokens expirados eliminados")
+    except Exception as e:
+        logger.error(f"Cleanup tokens ERROR: {e}", exc_info=True)
+
+
 # ── Scheduler singleton ──────────────────────────────────────────────────────
 scheduler = AsyncIOScheduler(timezone="America/Santiago")
 
@@ -70,6 +87,14 @@ scheduler.add_job(
     IntervalTrigger(minutes=30),
     id="periodic_checks",
     name="Stock mínimo y discrepancias",
+    replace_existing=True,
+)
+
+scheduler.add_job(
+    job_cleanup_tokens,
+    CronTrigger(hour=3),
+    id="cleanup_tokens",
+    name="Limpieza refresh tokens expirados",
     replace_existing=True,
 )
 

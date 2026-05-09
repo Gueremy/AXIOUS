@@ -3,9 +3,10 @@ app/schemas/usuario.py
 Schemas Pydantic para el modelo Usuario.
 REGLA LEY 19.628: el campo 'rut' y 'password_hash' NUNCA aparecen en ningún Read schema.
 """
+import re
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from enum import Enum
 
 
@@ -46,11 +47,26 @@ class UsuarioRead(BaseModel):
 class UsuarioCreate(BaseModel):
     nombre:          str
     email:           EmailStr
-    password:        str        # Se hashea en el router, nunca se almacena en texto plano
+    password:        str
     codigo_empleado: str
     rol:             RolEnum
     id_sede:         Optional[str] = None
     turno:           Optional[TurnoEnum] = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Mínimo 8 caracteres")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Debe incluir al menos una mayúscula")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Debe incluir al menos una minúscula")
+        if not re.search(r"\d", v):
+            raise ValueError("Debe incluir al menos un número")
+        if not re.search(r"[^A-Za-z0-9]", v):
+            raise ValueError("Debe incluir al menos un carácter especial")
+        return v
 
 
 # ─── Actualización (body del PATCH) ──────────────────────────────────────────

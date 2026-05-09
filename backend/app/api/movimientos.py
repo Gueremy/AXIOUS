@@ -1,18 +1,17 @@
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
-from datetime import datetime
+from sqlalchemy import select
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models.movimiento import Movimiento
 from app.models.container import Container
 from app.models.producto import Producto
 from app.models.galpon import Galpon
-from app.models.sede import Sede
 from app.models.usuario import Usuario
 from app.schemas.movimiento import (MovimientoCreate, MovimientoRead,
-                                    MovimientoAprobar, MovimientoRechazar)
+                                    MovimientoOfflineCreate, MovimientoRechazar)
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
 from app.services.alertas import evaluar_alertas
@@ -93,11 +92,11 @@ async def create_movimiento(
 
         # Auto-aprobar y hacer matemáticas inmediatamente para Traslados (Operatividad Rápida)
         movimiento.estado = "aprobado"
-        movimiento.fecha_aprobacion = datetime.utcnow()
+        movimiento.fecha_aprobacion = datetime.now(timezone.utc).replace(tzinfo=None)
         container.ocupacion_actual -= mov_in.cantidad
-        container.ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.now(timezone.utc).replace(tzinfo=None)
         container_dst.ocupacion_actual += mov_in.cantidad
-        container_dst.ultimo_movimiento = datetime.utcnow()
+        container_dst.ultimo_movimiento = datetime.now(timezone.utc).replace(tzinfo=None)
         # Se evalúan alertas más abajo si es necesario
     else:
         # correcciones u otros
@@ -133,20 +132,22 @@ async def aprobar_movimiento(
     if movimiento.id_usuario == current_user.id:
         raise HTTPException(status_code=403, detail="Ciberseguridad (A04): No puedes aprobar movimientos que tú mismo generaste.")
 
-    container = (await db.execute(select(Container).where(Container.id == movimiento.id_container))).scalars().first()
+    container = (await db.execute(
+        select(Container).where(Container.id == movimiento.id_container).with_for_update()
+    )).scalars().first()
 
     # Impacto matemático según tipo
     if movimiento.tipo == "entrada_proveedor":
         if container.ocupacion_actual + movimiento.cantidad > container.capacidad_max:
             raise HTTPException(status_code=400, detail="Capacidad insuficiente en el contenedor. Otro movimiento lo llenó recientemente.")
         container.ocupacion_actual += movimiento.cantidad
-        container.ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.now(timezone.utc).replace(tzinfo=None)
 
     elif movimiento.tipo == "salida_produccion":
         if container.ocupacion_actual < movimiento.cantidad:
             raise HTTPException(status_code=400, detail="Stock insuficiente en este momento para originar la salida.")
         container.ocupacion_actual -= movimiento.cantidad
-        container.ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.now(timezone.utc).replace(tzinfo=None)
         
     elif movimiento.tipo == "traslado_interno":
         # Por si alguno llegó como pendiente por un offline sync
@@ -158,13 +159,13 @@ async def aprobar_movimiento(
         
         container.ocupacion_actual -= movimiento.cantidad
         container_dst.ocupacion_actual += movimiento.cantidad
-        container.ultimo_movimiento = datetime.utcnow()
-        container_dst.ultimo_movimiento = datetime.utcnow()
+        container.ultimo_movimiento = datetime.now(timezone.utc).replace(tzinfo=None)
+        container_dst.ultimo_movimiento = datetime.now(timezone.utc).replace(tzinfo=None)
         
 
     movimiento.estado = "aprobado"
     movimiento.id_usuario_aprobador = current_user.id
-    movimiento.fecha_aprobacion = datetime.utcnow()
+    movimiento.fecha_aprobacion = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Auditoría rigurosa
     await log_action(db, current_user.id, "APROBAR_MOVIMIENTO", "Movimiento", str(movimiento.id), {"aprobador_id_rut_enc": current_user.id})
@@ -195,7 +196,7 @@ async def rechazar_movimiento(
 
     movimiento.estado = "rechazado"
     movimiento.id_usuario_aprobador = current_user.id
-    movimiento.fecha_aprobacion = datetime.utcnow()
+    movimiento.fecha_aprobacion = datetime.now(timezone.utc).replace(tzinfo=None)
     movimiento.motivo_rechazo = payload.motivo_rechazo
 
     await log_action(db, current_user.id, "RECHAZAR_MOVIMIENTO", "Movimiento", str(movimiento.id), {"motivo": payload.motivo_rechazo})
@@ -301,13 +302,13 @@ async def ruta_picking(
 
 @router.post("/sync", status_code=status.HTTP_201_CREATED)
 async def sync_movimientos(
-    movimientos_offline: list[dict],
+    movimientos_offline: list[MovimientoOfflineCreate],
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ) -> Any:
     """AXI-13 — Sincronizacion offline real. Last-Write-Wins + validacion capacidad."""
     if not movimientos_offline:
         return {"resultados": []}
-    resultados = await procesar_sync(movimientos_offline, str(current_user.id), db)
+    resultados = await procesar_sync(movimientos_offline, str(current_user.id), current_user.id_sede, db)
     return {"resultados": resultados}
 

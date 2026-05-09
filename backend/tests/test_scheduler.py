@@ -17,9 +17,9 @@ from app.scheduler import scheduler
 
 
 def test_scheduler_tiene_jobs():
-    """El scheduler tiene exactamente 2 jobs registrados."""
+    """El scheduler tiene exactamente 3 jobs registrados."""
     jobs = scheduler.get_jobs()
-    assert len(jobs) == 2
+    assert len(jobs) == 3
 
 
 def test_job_nightly_id():

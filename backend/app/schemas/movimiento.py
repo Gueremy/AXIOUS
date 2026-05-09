@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 
@@ -56,8 +56,32 @@ class MovimientoCreate(MovimientoBase):
 
         return self
 
+class MovimientoOfflineCreate(BaseModel):
+    """Schema para movimientos creados offline en Dexie.js."""
+    uuid_local:          str = ""
+    id_container:        str
+    id_producto:         str
+    tipo:                str
+    cantidad:            float = Field(gt=0, lt=999999)
+    numero_lote:         str = "OFFLINE"
+    fecha_vencimiento:   Optional[datetime] = None
+    nombre_proveedor:    Optional[str] = None
+    num_guia_despacho:   Optional[str] = None
+    registro_sanitario:  Optional[str] = None
+    temperatura_almacen: Optional[float] = None
+    observaciones:       Optional[str] = None
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        allowed = {"entrada_proveedor", "salida_produccion", "traslado_interno"}
+        if v not in allowed:
+            raise ValueError(f"tipo debe ser uno de: {', '.join(sorted(allowed))}")
+        return v
+
+
 class MovimientoAprobar(BaseModel):
-    pass # No requiere campos extras, el token del jefe lo firma
+    pass
 
 class MovimientoRechazar(BaseModel):
     motivo_rechazo: str

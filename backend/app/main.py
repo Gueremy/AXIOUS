@@ -11,28 +11,25 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from jose import JWTError
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.api import api_router
 from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.security import verify_token
 from app.database import engine
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
 from app.websockets import manager
 from app.scheduler import scheduler
 
-# ─── Rate limiter ─────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address)
-
 
 # ─── Lifespan (startup / shutdown) ───────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app):
-    # Startup
     scheduler.start()
     yield
-    # Shutdown
     scheduler.shutdown()
 
 
@@ -42,7 +39,6 @@ app = FastAPI(
     description="Backend del sistema de gestión de inventario para Skretting. "
                 "SERNAPESCA compliance · Multi-sede · 5 roles.",
     version="3.0.0",
-    # Swagger y ReDoc solo en desarrollo
     docs_url="/docs"  if settings.ENVIRONMENT == "development" else None,
     redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
     lifespan=lifespan,
@@ -71,13 +67,19 @@ async def websocket_alertas(websocket: WebSocket, id_sede: str):
     WebSocket para recibir alertas en tiempo real filtradas por sede.
     Conexión: ws://host/ws/alertas/{id_sede}?token=JWT_TOKEN
     """
-    # TODO: Validar JWT desde query param en producción
-    # token = websocket.query_params.get("token")
-    # if not token or not validate_jwt(token): await websocket.close(4001); return
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Token requerido")
+        return
+    try:
+        verify_token(token, expected_type="access")
+    except JWTError:
+        await websocket.close(code=4001, reason="Token inválido o expirado")
+        return
+
     await manager.connect(websocket, id_sede)
     try:
         while True:
-            # Mantener conexión viva — el cliente puede enviar pings
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, id_sede)

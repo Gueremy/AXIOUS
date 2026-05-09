@@ -8,13 +8,12 @@ Se ejecuta en 2 contextos:
   2. Programado: via APScheduler (jobs nocturnos y periódicos)
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import case, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.alerta import Alerta
 from app.models.container import Container
@@ -175,37 +174,26 @@ async def _check_discrepancia(
     container: Container, db: AsyncSession
 ) -> Optional[Alerta]:
     """Tipo 6: diferencia entre ocupación registrada y suma de movimientos > 5%."""
-    # Sumar entradas aprobadas
-    entradas = await db.scalar(
-        select(func.coalesce(func.sum(Movimiento.cantidad), 0))
+    # Query 1: entradas, salidas y traslados_salida en una sola pasada
+    row = (await db.execute(
+        select(
+            func.coalesce(func.sum(
+                case((Movimiento.tipo == "entrada_proveedor", Movimiento.cantidad), else_=0)
+            ), 0).label("entradas"),
+            func.coalesce(func.sum(
+                case((Movimiento.tipo == "salida_produccion", Movimiento.cantidad), else_=0)
+            ), 0).label("salidas"),
+            func.coalesce(func.sum(
+                case((Movimiento.tipo == "traslado_interno", Movimiento.cantidad), else_=0)
+            ), 0).label("traslados_salida"),
+        )
         .where(
             Movimiento.id_container == container.id,
             Movimiento.estado == "aprobado",
-            Movimiento.tipo.in_(["entrada_proveedor"]),
         )
-    ) or Decimal("0")
+    )).one()
 
-    # Sumar salidas aprobadas
-    salidas = await db.scalar(
-        select(func.coalesce(func.sum(Movimiento.cantidad), 0))
-        .where(
-            Movimiento.id_container == container.id,
-            Movimiento.estado == "aprobado",
-            Movimiento.tipo.in_(["salida_produccion"]),
-        )
-    ) or Decimal("0")
-
-    # Sumar traslados de salida (este container como origen)
-    traslados_salida = await db.scalar(
-        select(func.coalesce(func.sum(Movimiento.cantidad), 0))
-        .where(
-            Movimiento.id_container == container.id,
-            Movimiento.estado == "aprobado",
-            Movimiento.tipo == "traslado_interno",
-        )
-    ) or Decimal("0")
-
-    # Sumar traslados de entrada (este container como destino)
+    # Query 2: traslados donde este container es destino
     traslados_entrada = await db.scalar(
         select(func.coalesce(func.sum(Movimiento.cantidad), 0))
         .where(
@@ -215,7 +203,12 @@ async def _check_discrepancia(
         )
     ) or Decimal("0")
 
-    esperado = Decimal(str(entradas)) - Decimal(str(salidas)) - Decimal(str(traslados_salida)) + Decimal(str(traslados_entrada))
+    esperado = (
+        Decimal(str(row.entradas or 0))
+        - Decimal(str(row.salidas or 0))
+        - Decimal(str(row.traslados_salida or 0))
+        + Decimal(str(traslados_entrada or 0))
+    )
     actual = Decimal(str(container.ocupacion_actual or 0))
 
     if esperado == 0:
@@ -291,7 +284,7 @@ async def evaluar_alertas(
         Lista de alertas creadas (puede estar vacía)
     """
     if ahora is None:
-        ahora = datetime.utcnow()
+        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
 
     container = (await db.execute(
         select(Container).where(Container.id == id_container)
@@ -381,7 +374,7 @@ async def evaluar_alertas_batch(
         ahora: datetime para override
     """
     if ahora is None:
-        ahora = datetime.utcnow()
+        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
 
     containers = (await db.execute(
         select(Container).where(

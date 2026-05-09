@@ -20,6 +20,7 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from app.core.limiter import limiter as _app_limiter
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 from passlib.context import CryptContext
@@ -44,6 +45,16 @@ TestSessionLocal = async_sessionmaker(
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=4)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Limpia el estado del rate limiter entre tests para evitar 429 falsos."""
+    try:
+        _app_limiter._storage.reset()
+    except Exception:
+        pass
+    yield
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)

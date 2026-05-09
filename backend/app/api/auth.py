@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user, require_role
+from app.core.limiter import limiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -62,6 +63,7 @@ async def _save_refresh_token(
 
 # ─── POST /auth/login ─────────────────────────────────────────────────────────
 @router.post("/login", response_model=TokenResponse, summary="Iniciar sesión")
+@limiter.limit("5/5minutes")
 async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
