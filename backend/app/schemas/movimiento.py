@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
@@ -6,7 +7,7 @@ class MovimientoBase(BaseModel):
     id_container: str
     id_producto: str
     tipo: str  # entrada_proveedor, salida_produccion, traslado_interno, correccion
-    cantidad: float
+    cantidad: Decimal
     numero_lote: str
 
     # Campos SERNAPESCA
@@ -62,7 +63,7 @@ class MovimientoOfflineCreate(BaseModel):
     id_container:        str
     id_producto:         str
     tipo:                str
-    cantidad:            float = Field(gt=0, lt=999999)
+    cantidad:            Decimal = Field(gt=0, lt=999999)
     numero_lote:         str = "OFFLINE"
     fecha_vencimiento:   Optional[datetime] = None
     nombre_proveedor:    Optional[str] = None
@@ -94,9 +95,9 @@ class MovimientoRead(BaseModel):
     id_usuario_aprobador: Optional[str] = None
     tipo: str
     estado: str
-    cantidad: float
+    cantidad: Decimal
     numero_lote: str
-    
+
     fecha_fabricacion: Optional[datetime] = None
     fecha_vencimiento: Optional[datetime] = None
     nombre_proveedor: Optional[str] = None
