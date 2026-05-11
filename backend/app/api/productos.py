@@ -12,6 +12,7 @@ from app.schemas.producto import ProductoCreate, ProductoRead, ProductoUpdate
 from app.schemas.common import PaginatedResponse
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
+from app.core.logger import log_producto_creado
 
 router = APIRouter()
 
@@ -55,9 +56,16 @@ async def create_producto(
     db.add(producto)
     await db.commit()
     await db.refresh(producto)
-    
+
     await log_action(db, current_user.id, "CREAR_PRODUCTO", "Producto", str(producto.id), producto_in.model_dump())
     await db.commit()
+
+    log_producto_creado(
+        nombre_usuario=current_user.nombre,
+        nombre_producto=producto.nombre,
+        codigo=producto.codigo_barras,
+    )
+
     return producto
 
 @router.patch("/{id}", response_model=ProductoRead)

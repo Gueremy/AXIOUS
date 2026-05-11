@@ -18,6 +18,7 @@ from sqlalchemy import delete
 from app.database import AsyncSessionLocal
 from app.models.refresh_token import RefreshToken
 from app.services.alertas import evaluar_alertas_batch
+from app.core.logger import log_job_scheduler, log_job_scheduler_error
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,15 @@ async def job_nightly_alerts():
                 db,
                 tipos=["vencimiento_7_dias", "vencimiento_30_dias", "sin_movimiento_30_dias"],
             )
-            logger.info(f"⏰ Job nocturno finalizado: {total} alertas creadas")
+            log_job_scheduler(
+                descripcion="Revisión nocturna de vencimientos y contenedores sin movimiento",
+                resultado=f"Se detectaron {total} alertas nuevas",
+            )
     except Exception as e:
+        log_job_scheduler_error(
+            descripcion="Revisión nocturna de vencimientos y contenedores sin movimiento",
+            error=str(e),
+        )
         logger.error(f"⏰ Job nocturno ERROR: {e}", exc_info=True)
 
 
@@ -51,8 +59,15 @@ async def job_periodic_checks():
                 db,
                 tipos=["stock_minimo", "discrepancia_inventario"],
             )
-            logger.info(f"🔄 Job periódico finalizado: {total} alertas creadas")
+            log_job_scheduler(
+                descripcion="Revisión periódica de stock mínimo y discrepancias de inventario",
+                resultado=f"Se detectaron {total} alertas nuevas",
+            )
     except Exception as e:
+        log_job_scheduler_error(
+            descripcion="Revisión periódica de stock mínimo y discrepancias de inventario",
+            error=str(e),
+        )
         logger.error(f"🔄 Job periódico ERROR: {e}", exc_info=True)
 
 

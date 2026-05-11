@@ -15,6 +15,7 @@ from app.schemas.container import ContainerCreate, ContainerRead, ContainerUpdat
 from app.schemas.common import PaginatedResponse
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
+from app.core.logger import log_container_creado
 
 router = APIRouter()
 
@@ -83,9 +84,20 @@ async def create_container(
     db.add(container)
     await db.commit()
     await db.refresh(container)
-    
+
     await log_action(db, current_user.id, "CREAR_CONTAINER", "Container", str(container.id), container_in.model_dump())
     await db.commit()
+
+    sede = (await db.execute(select(Sede).where(Sede.id == galpon.id_sede))).scalars().first()
+    log_container_creado(
+        nombre_usuario=current_user.nombre,
+        codigo=container.codigo,
+        galpon_nombre=galpon.nombre,
+        sede_nombre=sede.nombre if sede else "Sede desconocida",
+        capacidad=float(container.capacidad_max),
+        unidad=container.unidad_medida,
+    )
+
     return container
 
 @router.get("/{id}", response_model=ContainerRead)
