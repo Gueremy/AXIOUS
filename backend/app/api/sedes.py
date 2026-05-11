@@ -1,7 +1,7 @@
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.sede import Sede
@@ -20,9 +20,10 @@ async def read_sedes(
     limit: int = 100,
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    # Contar total
-    total = len((await db.execute(select(Sede.id))).all())
-    
+    # Contar total eficiente con func.count()
+    count_stmt = select(func.count()).select_from(Sede)
+    total = await db.scalar(count_stmt) or 0
+
     stmt = select(Sede).offset(skip).limit(limit)
     # Aislamiento: si no es admin/gerente, solo ve su propia sede
     if current_user.rol not in ["super_admin", "gerencia"] and current_user.id_sede:

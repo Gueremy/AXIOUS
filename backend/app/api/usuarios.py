@@ -1,7 +1,7 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.usuario import Usuario, UsuarioGalpon
@@ -11,6 +11,7 @@ from app.schemas.usuario import UsuarioRead, UsuarioUpdate
 from app.schemas.common import PaginatedResponse
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
+from app.core.logger import log_usuario_desactivado
 
 router = APIRouter()
 
@@ -23,7 +24,7 @@ async def read_usuarios(
     current_user: Usuario = Depends(require_role(["super_admin", "gerencia", "admin_sede"]))
 ) -> Any:
     stmt = select(Usuario)
-    
+
     sede_filter = id_sede
     if current_user.rol == "admin_sede":
         sede_filter = current_user.id_sede
@@ -31,11 +32,10 @@ async def read_usuarios(
     if sede_filter:
         stmt = stmt.where(Usuario.id_sede == sede_filter)
 
-    total_result = await db.execute(stmt)
-    total = len(total_result.scalars().all())
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = await db.scalar(count_stmt) or 0
 
-    stmt = stmt.offset(skip).limit(limit)
-    result = await db.execute(stmt)
+    result = await db.execute(stmt.offset(skip).limit(limit))
     usuarios = result.scalars().all()
     
     return {
@@ -71,6 +71,14 @@ async def update_usuario(
     await log_action(db, current_user.id, "ACTUALIZAR_USUARIO", "Usuario", str(usuario.id), update_data)
     await db.commit()
     await db.refresh(usuario)
+
+    if update_data.get("activo") is False:
+        log_usuario_desactivado(
+            nombre_admin=current_user.nombre,
+            nombre_usuario=usuario.nombre,
+            email=usuario.email,
+        )
+
     return usuario
 
 @router.post("/{id}/asignar-galpones")

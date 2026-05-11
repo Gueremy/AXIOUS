@@ -15,13 +15,29 @@ from typing import Optional
 from sqlalchemy import case, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logger import log_alerta_creada as _log_alerta_creada
+
 from app.models.alerta import Alerta
 from app.models.container import Container
 from app.models.galpon import Galpon
 from app.models.movimiento import Movimiento
 from app.models.producto import Producto
+from app.models.sede import Sede
 
 logger = logging.getLogger(__name__)
+
+
+def _as_comparable(ahora: datetime, reference: datetime) -> datetime:
+    """
+    Devuelve ahora con el mismo tzinfo que reference para permitir comparaciones.
+    SQLite devuelve datetimes naive; PostgreSQL devuelve tz-aware.
+    Si reference es naive, retorna ahora sin tzinfo (UTC implícito).
+    Si reference es tz-aware, retorna ahora con tzinfo UTC.
+    """
+    if reference.tzinfo is None:
+        return ahora.replace(tzinfo=None)
+    return ahora if ahora.tzinfo is not None else ahora.replace(tzinfo=timezone.utc)
+
 
 # ── Configuración de alertas (GUIDELINES.md líneas 499-508) ───────────────────
 ALERTAS_CONFIG = {
@@ -42,6 +58,9 @@ async def _crear_alerta_si_no_existe(
     tipo: str,
     severidad: str,
     descripcion: str,
+    container_codigo: str = "",
+    galpon_nombre: str = "Galpón",
+    sede_nombre: str = "Sede",
 ) -> Optional[Alerta]:
     """Crea alerta solo si no existe una activa del mismo tipo para el container."""
     existente = await db.scalar(
@@ -64,6 +83,13 @@ async def _crear_alerta_si_no_existe(
     db.add(alerta)
     await db.flush()
     logger.info(f"Alerta creada: tipo={tipo}, container={id_container}, sev={severidad}")
+    _log_alerta_creada(
+        tipo_alerta=tipo,
+        container_codigo=container_codigo or id_container,
+        galpon_nombre=galpon_nombre,
+        sede_nombre=sede_nombre,
+        detalle=descripcion,
+    )
     return alerta
 
 
@@ -80,7 +106,8 @@ async def _check_capacidad_critica(
         return await _crear_alerta_si_no_existe(
             db, container.id, "capacidad_critica", "critica",
             f"Container {container.codigo} al {pct:.0f}% de capacidad "
-            f"({container.ocupacion_actual}/{container.capacidad_max} {container.unidad_medida})."
+            f"({container.ocupacion_actual}/{container.capacidad_max} {container.unidad_medida}).",
+            container_codigo=container.codigo,
         )
     return None
 
@@ -90,6 +117,8 @@ async def _check_vencimientos(
 ) -> list[Alerta]:
     """Tipos 2-3: movimientos aprobados con fecha_vencimiento próxima."""
     alertas_creadas = []
+    # Usar ahora naive para el filtro SQL (compatible con SQLite y PostgreSQL naive)
+    ahora_naive = ahora.replace(tzinfo=None)
     # Buscar movimientos aprobados en este container con vencimiento futuro
     stmt = (
         select(Movimiento)
@@ -97,18 +126,20 @@ async def _check_vencimientos(
             Movimiento.id_container == container.id,
             Movimiento.estado == "aprobado",
             Movimiento.fecha_vencimiento.isnot(None),
-            Movimiento.fecha_vencimiento > ahora,
+            Movimiento.fecha_vencimiento > ahora_naive,
         )
     )
     rows = (await db.execute(stmt)).scalars().all()
 
     for mov in rows:
-        dias_restantes = (mov.fecha_vencimiento - ahora).days
+        ahora_cmp = _as_comparable(ahora, mov.fecha_vencimiento)
+        dias_restantes = (mov.fecha_vencimiento - ahora_cmp).days
         if dias_restantes <= 7:
             a = await _crear_alerta_si_no_existe(
                 db, container.id, "vencimiento_7_dias", "critica",
                 f"Lote {mov.numero_lote} en container {container.codigo} "
-                f"vence en {dias_restantes} días ({mov.fecha_vencimiento.strftime('%d/%m/%Y')})."
+                f"vence en {dias_restantes} días ({mov.fecha_vencimiento.strftime('%d/%m/%Y')}).",
+                container_codigo=container.codigo,
             )
             if a:
                 alertas_creadas.append(a)
@@ -116,7 +147,8 @@ async def _check_vencimientos(
             a = await _crear_alerta_si_no_existe(
                 db, container.id, "vencimiento_30_dias", "aviso",
                 f"Lote {mov.numero_lote} en container {container.codigo} "
-                f"vence en {dias_restantes} días ({mov.fecha_vencimiento.strftime('%d/%m/%Y')})."
+                f"vence en {dias_restantes} días ({mov.fecha_vencimiento.strftime('%d/%m/%Y')}).",
+                container_codigo=container.codigo,
             )
             if a:
                 alertas_creadas.append(a)
@@ -149,7 +181,8 @@ async def _check_stock_minimo(
             db, container.id, "stock_minimo", "aviso",
             f"Container {container.codigo}: stock actual ({ocupacion} {container.unidad_medida}) "
             f"por debajo del mínimo operacional ({producto.stock_minimo} {container.unidad_medida}) "
-            f"del producto {producto.nombre}."
+            f"del producto {producto.nombre}.",
+            container_codigo=container.codigo,
         )
     return None
 
@@ -165,7 +198,8 @@ async def _check_fuera_horario(
             db, container.id, "movimiento_fuera_horario", "aviso",
             f"Movimiento en container {container.codigo} registrado fuera de horario "
             f"({ahora.strftime('%H:%M')}). Horario permitido: "
-            f"{config['hora_ini']:02d}:00 — {config['hora_fin']:02d}:00."
+            f"{config['hora_ini']:02d}:00 — {config['hora_fin']:02d}:00.",
+            container_codigo=container.codigo,
         )
     return None
 
@@ -219,7 +253,8 @@ async def _check_discrepancia(
         return await _crear_alerta_si_no_existe(
             db, container.id, "discrepancia_inventario", "aviso",
             f"Container {container.codigo}: discrepancia de {diff_pct:.1f}% "
-            f"entre ocupación registrada ({actual}) y calculada ({esperado})."
+            f"entre ocupación registrada ({actual}) y calculada ({esperado}).",
+            container_codigo=container.codigo,
         )
     return None
 
@@ -236,16 +271,20 @@ async def _check_sin_movimiento(
         if container.ocupacion_actual and Decimal(str(container.ocupacion_actual)) > 0:
             return await _crear_alerta_si_no_existe(
                 db, container.id, "sin_movimiento_30_dias", "informativa",
-                f"Container {container.codigo}: tiene stock pero nunca registró movimiento."
+                f"Container {container.codigo}: tiene stock pero nunca registró movimiento.",
+                container_codigo=container.codigo,
             )
         return None
 
+    ahora_cmp = _as_comparable(ahora, container.ultimo_movimiento)
+    umbral = ahora_cmp - timedelta(days=config["dias"])
     if container.ultimo_movimiento < umbral:
-        dias = (ahora - container.ultimo_movimiento).days
+        dias = (ahora_cmp - container.ultimo_movimiento).days
         return await _crear_alerta_si_no_existe(
             db, container.id, "sin_movimiento_30_dias", "informativa",
             f"Container {container.codigo}: sin movimiento hace {dias} días "
-            f"(último: {container.ultimo_movimiento.strftime('%d/%m/%Y')})."
+            f"(último: {container.ultimo_movimiento.strftime('%d/%m/%Y')}).",
+            container_codigo=container.codigo,
         )
     return None
 
@@ -258,7 +297,8 @@ async def _check_cuarentena(
         return await _crear_alerta_si_no_existe(
             db, container.id, "cuarentena_activa", "critica",
             f"Container {container.codigo} en CUARENTENA. "
-            f"Motivo: {container.motivo_estado or 'Sin motivo especificado'}."
+            f"Motivo: {container.motivo_estado or 'Sin motivo especificado'}.",
+            container_codigo=container.codigo,
         )
     return None
 
@@ -284,7 +324,7 @@ async def evaluar_alertas(
         Lista de alertas creadas (puede estar vacía)
     """
     if ahora is None:
-        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+        ahora = datetime.now(timezone.utc)
 
     container = (await db.execute(
         select(Container).where(Container.id == id_container)
@@ -374,7 +414,7 @@ async def evaluar_alertas_batch(
         ahora: datetime para override
     """
     if ahora is None:
-        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+        ahora = datetime.now(timezone.utc)
 
     containers = (await db.execute(
         select(Container).where(

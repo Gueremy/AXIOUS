@@ -18,6 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from app.api import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.logger import log_sistema_iniciado, log_sistema_detenido
 from app.core.security import verify_token
 from app.database import engine
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
@@ -28,9 +29,11 @@ from app.scheduler import scheduler
 # ─── Lifespan (startup / shutdown) ───────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app):
+    log_sistema_iniciado(version="3.0.0", entorno=settings.ENVIRONMENT)
     scheduler.start()
     yield
     scheduler.shutdown()
+    log_sistema_detenido()
 
 
 # ─── App ──────────────────────────────────────────────────────────────────────
@@ -52,8 +55,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
 
 # ─── Routers ──────────────────────────────────────────────────────────────────

@@ -6,8 +6,7 @@ Sugiere los containers con producto X ordenados por fecha_vencimiento ASC.
 Objetivo: reducir mermas del 1.5% actual a < 1%.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, func
 
 from app.models.container import Container
 from app.models.galpon import Galpon
@@ -26,7 +25,24 @@ async def sugerir_container_fefo(
 
     Solo considera movimientos aprobados y containers disponibles.
     Filtra por sede para garantizar aislamiento multi-sede.
+    Usa subquery con func.min() para evitar duplicados cuando un container
+    tiene múltiples movimientos aprobados con distintas fechas de vencimiento.
     """
+    # Subquery: fecha_vencimiento más próxima por container para el producto dado
+    subq = (
+        select(
+            Movimiento.id_container,
+            func.min(Movimiento.fecha_vencimiento).label("min_vencimiento"),
+        )
+        .where(
+            Movimiento.id_producto == id_producto,
+            Movimiento.estado == "aprobado",
+            Movimiento.fecha_vencimiento.isnot(None),
+        )
+        .group_by(Movimiento.id_container)
+        .subquery()
+    )
+
     stmt = (
         select(
             Container.id,
@@ -35,19 +51,15 @@ async def sugerir_container_fefo(
             Container.posicion_col,
             Container.ocupacion_actual,
             Container.capacidad_max,
-            Movimiento.fecha_vencimiento,
-            Movimiento.numero_lote,
+            subq.c.min_vencimiento.label("fecha_vencimiento"),
         )
-        .join(Movimiento, Movimiento.id_container == Container.id)
+        .join(subq, subq.c.id_container == Container.id)
         .join(Galpon, Container.id_galpon == Galpon.id)
         .where(
-            Movimiento.id_producto == id_producto,
             Galpon.id_sede == id_sede,
             Container.estado == "disponible",
-            Movimiento.estado == "aprobado",
-            Movimiento.fecha_vencimiento.isnot(None),
         )
-        .order_by(Movimiento.fecha_vencimiento.asc())
+        .order_by(subq.c.min_vencimiento.asc())
         .limit(limite)
     )
 

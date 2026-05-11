@@ -13,6 +13,7 @@ Flujo de login:
 
 Rate limiting: 5 intentos / 5 minutos por IP en /auth/login
 """
+import hashlib
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -25,6 +26,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.dependencies import get_current_user, require_role
 from app.core.limiter import limiter
+from app.core.logger import (
+    log_inicio_sesion,
+    log_cierre_sesion,
+    log_fallo_login,
+    log_cuenta_bloqueada,
+)
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -87,6 +94,7 @@ async def login(
     
     if usuario is not None:
         if usuario.bloqueo_hasta and usuario.bloqueo_hasta > datetime.now(timezone.utc):
+            log_cuenta_bloqueada(email=form_data.username, ip=request.client.host)
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cuenta bloqueada por demasiados intentos. Intente en 15 minutos.")
             
         if not verify_password(form_data.password, usuario.password_hash):
@@ -94,6 +102,11 @@ async def login(
             if usuario.intentos_fallidos >= 5:
                 usuario.bloqueo_hasta = datetime.now(timezone.utc) + timedelta(minutes=15)
             await db.commit()
+            log_fallo_login(
+                email=form_data.username,
+                ip=request.client.host,
+                intento=usuario.intentos_fallidos,
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=INVALID_MSG,
@@ -127,6 +140,12 @@ async def login(
 
     # 7. Persistir refresh token en BD (Opción B)
     await _save_refresh_token(db, refresh_token, usuario.id)
+
+    log_inicio_sesion(
+        nombre_usuario=usuario.nombre,
+        email=usuario.email,
+        ip=request.client.host,
+    )
 
     return TokenResponse(
         access_token=access_token,
@@ -215,6 +234,8 @@ async def logout(
         stored.revocado = True
         await db.commit()
 
+    log_cierre_sesion(nombre_usuario=current_user.nombre, email=current_user.email)
+
 
 # ─── POST /auth/register ──────────────────────────────────────────────────────
 @router.post(
@@ -284,10 +305,11 @@ async def forgot_password(
     
     if usuario:
         token = str(uuid.uuid4())
-        usuario.reset_token = token
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        usuario.reset_token = token_hash
         usuario.reset_token_expire = datetime.now(timezone.utc) + timedelta(hours=1)
         await db.commit()
-        # TODO: Integración SMTP a futuro. Print simulado:
+        # TODO: Integración SMTP a futuro. Enviar `token` (en claro) al usuario por email.
         # print(f"Email to {usuario.email}: token={token}")
 
     return {"mensaje": "Si el correo existe en nuestro sistema, recibirá un enlace de recuperación."}
@@ -303,9 +325,10 @@ async def reset_password(
     Recibe el token de recuperación y una nueva contraseña.
     Restablece la cuenta y sus bloqueos anteriores.
     """
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
     result = await db.execute(
         select(Usuario).where(
-            Usuario.reset_token == body.token,
+            Usuario.reset_token == token_hash,
             Usuario.reset_token_expire > datetime.now(timezone.utc)
         )
     )

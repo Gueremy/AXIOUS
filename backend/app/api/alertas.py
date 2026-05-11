@@ -15,7 +15,7 @@ Reglas:
   - Auditoría en cada PATCH
 """
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -31,6 +31,7 @@ from app.models.usuario import Usuario
 from app.schemas.alerta import AlertaRead, AlertaRevisar, AlertaResolver
 from app.core.dependencies import require_role
 from app.core.audit import log_action
+from app.core.logger import log_alerta_resuelta
 
 router = APIRouter()
 
@@ -143,7 +144,7 @@ async def revisar_alerta(
 
     alerta.estado = "revisada"
     alerta.id_usuario_revision = current_user.id
-    alerta.fecha_revision = datetime.utcnow()
+    alerta.fecha_revision = datetime.now(timezone.utc)
 
     await log_action(
         db, current_user.id, "REVISAR_ALERTA", "Alerta", str(alerta.id),
@@ -201,4 +202,30 @@ async def resolver_alerta(
 
     await db.commit()
     await db.refresh(alerta)
+
+    # Obtener nombre de sede para el log (best-effort)
+    _sede_nombre = "Sede desconocida"
+    _container = (await db.execute(
+        select(Container).where(Container.id == alerta.id_container)
+    )).scalars().first()
+    _container_codigo = _container.codigo if _container else alerta.id_container
+    if _container:
+        _galpon = (await db.execute(
+            select(Galpon).where(Galpon.id == _container.id_galpon)
+        )).scalars().first()
+        if _galpon:
+            from app.models.sede import Sede as _Sede
+            _sede = (await db.execute(
+                select(_Sede).where(_Sede.id == _galpon.id_sede)
+            )).scalars().first()
+            if _sede:
+                _sede_nombre = _sede.nombre
+
+    log_alerta_resuelta(
+        nombre_usuario=current_user.nombre,
+        tipo_alerta=alerta.tipo,
+        container_codigo=_container_codigo,
+        sede_nombre=_sede_nombre,
+    )
+
     return AlertaRead.model_validate(alerta)

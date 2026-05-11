@@ -9,11 +9,17 @@ from app.models.movimiento import Movimiento
 from app.models.container import Container
 from app.models.producto import Producto
 from app.models.galpon import Galpon
+from app.models.sede import Sede
 from app.models.usuario import Usuario
 from app.schemas.movimiento import (MovimientoCreate, MovimientoRead,
                                     MovimientoOfflineCreate, MovimientoRechazar)
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
+from app.core.logger import (
+    log_movimiento_creado,
+    log_movimiento_aprobado,
+    log_movimiento_rechazado,
+)
 from app.services.alertas import evaluar_alertas
 from app.services.fefo import sugerir_container_fefo
 from app.services.picking import obtener_containers_para_picking, optimizar_ruta
@@ -103,11 +109,32 @@ async def create_movimiento(
         movimiento.estado = "pendiente"
 
     db.add(movimiento)
+    await db.flush()  # obtiene movimiento.id sin cerrar transacción
+
+    await log_action(db, current_user.id, "REGISTRAR_MOVIMIENTO", "Movimiento", str(movimiento.id), {"tipo": mov_in.tipo, "estado": movimiento.estado})
+
     await db.commit()
     await db.refresh(movimiento)
-    
-    await log_action(db, current_user.id, "REGISTRAR_MOVIMIENTO", "Movimiento", str(movimiento.id), {"tipo": mov_in.tipo, "estado": movimiento.estado})
-    
+
+    # Obtener nombre de sede para el log (best-effort, no bloquea el flujo)
+    sede_nombre = "Sede desconocida"
+    galpon = (await db.execute(select(Galpon).where(Galpon.id == container.id_galpon))).scalars().first()
+    if galpon:
+        sede = (await db.execute(select(Sede).where(Sede.id == galpon.id_sede))).scalars().first()
+        if sede:
+            sede_nombre = sede.nombre
+
+    log_movimiento_creado(
+        nombre_usuario=current_user.nombre,
+        tipo=mov_in.tipo,
+        cantidad=float(mov_in.cantidad),
+        unidad=container.unidad_medida,
+        producto=producto.nombre,
+        container_codigo=container.codigo,
+        sede_nombre=sede_nombre,
+        numero_lote=mov_in.numero_lote or "S/N",
+    )
+
     if mov_in.tipo == "traslado_interno":
         await evaluar_alertas(container.id, db, manager=manager)
         await evaluar_alertas(container_dst.id, db, manager=manager)
@@ -173,6 +200,25 @@ async def aprobar_movimiento(
     await db.commit()
     await db.refresh(movimiento)
 
+    # Obtener datos legibles para el log (best-effort)
+    _producto = (await db.execute(select(Producto).where(Producto.id == movimiento.id_producto))).scalars().first()
+    _galpon = (await db.execute(select(Galpon).where(Galpon.id == container.id_galpon))).scalars().first()
+    _sede_nombre = "Sede desconocida"
+    if _galpon:
+        _sede = (await db.execute(select(Sede).where(Sede.id == _galpon.id_sede))).scalars().first()
+        if _sede:
+            _sede_nombre = _sede.nombre
+
+    log_movimiento_aprobado(
+        nombre_aprobador=current_user.nombre,
+        tipo=movimiento.tipo,
+        cantidad=float(movimiento.cantidad),
+        unidad=container.unidad_medida,
+        producto=_producto.nombre if _producto else movimiento.id_producto,
+        container_codigo=container.codigo,
+        sede_nombre=_sede_nombre,
+    )
+
     # Disparar alertas instantáneas post-aprobación
     await evaluar_alertas(movimiento.id_container, db, manager=manager)
     if movimiento.id_container_destino:
@@ -200,9 +246,21 @@ async def rechazar_movimiento(
     movimiento.motivo_rechazo = payload.motivo_rechazo
 
     await log_action(db, current_user.id, "RECHAZAR_MOVIMIENTO", "Movimiento", str(movimiento.id), {"motivo": payload.motivo_rechazo})
-    
+
     await db.commit()
     await db.refresh(movimiento)
+
+    _rej_producto = (await db.execute(select(Producto).where(Producto.id == movimiento.id_producto))).scalars().first()
+    _rej_container = (await db.execute(select(Container).where(Container.id == movimiento.id_container))).scalars().first()
+
+    log_movimiento_rechazado(
+        nombre_aprobador=current_user.nombre,
+        tipo=movimiento.tipo,
+        producto=_rej_producto.nombre if _rej_producto else movimiento.id_producto,
+        container_codigo=_rej_container.codigo if _rej_container else movimiento.id_container,
+        motivo=payload.motivo_rechazo or "Sin motivo especificado",
+    )
+
     return movimiento
 
 @router.get("/pendientes")
