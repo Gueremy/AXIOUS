@@ -4,10 +4,10 @@ from typing import Optional
 
 class KPIResponse(BaseModel):
     """KPIs globales de la sede."""
-    ocupacion_global_pct: float
+    ocupacion_global: float
     alertas_activas: int
     movimientos_hoy: int
-    proximo_vencimiento_dias: Optional[int] = None  # None si no hay lotes con vencimiento
+    proximo_vencimiento: Optional[int] = None  # None si no hay lotes con vencimiento
 
 
 class OcupacionGalponItem(BaseModel):

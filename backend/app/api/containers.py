@@ -111,7 +111,16 @@ async def read_container(
     container = result.scalars().first()
     if not container:
         raise HTTPException(status_code=404, detail="Container no encontrado")
-        
+
+    # BUG-5 FIX (QA-26): Aislamiento cross-tenant — verificar que el container pertenece
+    # a la sede del usuario. super_admin y gerencia pueden ver containers de cualquier sede.
+    if current_user.rol not in ("super_admin", "gerencia"):
+        galpon = (await db.execute(
+            select(Galpon).where(Galpon.id == container.id_galpon)
+        )).scalars().first()
+        if not galpon or galpon.id_sede != current_user.id_sede:
+            raise HTTPException(status_code=403, detail="Acceso denegado: container de otra sede")
+
     return container
 
 @router.patch("/{id}/estado", response_model=ContainerRead)

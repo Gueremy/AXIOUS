@@ -70,9 +70,9 @@ async def get_kpis(
     )
     ocup_row = (await db.execute(ocup_stmt)).first()
     if ocup_row and ocup_row.total_cap and float(ocup_row.total_cap) > 0:
-        ocupacion_global_pct = round(float(ocup_row.total_ocup) / float(ocup_row.total_cap) * 100, 1)
+        ocupacion_global = round(float(ocup_row.total_ocup) / float(ocup_row.total_cap) * 100, 1)
     else:
-        ocupacion_global_pct = 0.0
+        ocupacion_global = 0.0
 
     # 2. Alertas activas de la sede
     alertas_activas = await db.scalar(
@@ -122,10 +122,10 @@ async def get_kpis(
         proximo_dias = (proximo - ahora).days
 
     return KPIResponse(
-        ocupacion_global_pct=ocupacion_global_pct,
+        ocupacion_global=ocupacion_global,
         alertas_activas=int(alertas_activas),
         movimientos_hoy=int(movimientos_hoy),
-        proximo_vencimiento_dias=proximo_dias,
+        proximo_vencimiento=proximo_dias,
     )
 
 

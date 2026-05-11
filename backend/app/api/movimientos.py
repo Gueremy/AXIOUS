@@ -228,6 +228,9 @@ async def aprobar_movimiento(
     if movimiento.id_container_destino:
         await evaluar_alertas(movimiento.id_container_destino, db, manager=manager)
 
+    # BUG-1 FIX: evaluar_alertas puede emitir db.commit() interno que expira el objeto.
+    # Con async SQLAlchemy (lazy="raise") es obligatorio refrescar antes de serializar.
+    await db.refresh(movimiento)
     return movimiento
 
 @router.patch("/{id}/rechazar", response_model=MovimientoRead)
@@ -243,6 +246,10 @@ async def rechazar_movimiento(
 
     if movimiento.estado != "pendiente":
         raise HTTPException(status_code=400, detail=f"El movimiento ya se encuentra {movimiento.estado}")
+
+    # Restricción A04 OWASP: Jefe no rechaza lo suyo
+    if movimiento.id_usuario == current_user.id:
+        raise HTTPException(status_code=403, detail="Ciberseguridad (A04): No puedes rechazar movimientos que tú mismo generaste.")
 
     movimiento.estado = "rechazado"
     movimiento.id_usuario_aprobador = current_user.id

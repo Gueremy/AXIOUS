@@ -35,7 +35,7 @@ from app.core.dependencies import require_role
 router = APIRouter()
 
 ROLES_REPORTE = ["jefe_bodega", "admin_sede", "super_admin"]
-ROLES_SERNAPESCA = ["admin_sede", "super_admin"]
+ROLES_SERNAPESCA = ["jefe_bodega", "admin_sede", "super_admin", "gerencia"]
 
 
 def _resolver_sede(current_user: Usuario, id_sede_param: Optional[str] = None) -> Optional[str]:
