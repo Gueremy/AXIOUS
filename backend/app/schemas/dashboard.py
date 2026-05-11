@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 from typing import Optional
 
 
@@ -14,6 +14,7 @@ class OcupacionGalponItem(BaseModel):
     """Ocupación por galpón — formato Recharts BarChart."""
     name: str              # nombre del galpón
     ocupacion_pct: float   # porcentaje 0-100
+    ocup: float            # BUG-3 FIX: alias que espera el frontend (mismo valor que ocupacion_pct)
     estado: str            # "disponible" | "medio" | "critico"
 
 

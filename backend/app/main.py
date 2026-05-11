@@ -64,11 +64,16 @@ app.include_router(api_router)
 
 
 # ─── WebSocket — Alertas en tiempo real por sede ──────────────────────────────
+# BUG-4 FIX: En Render (y cualquier proxy HTTPS), el cliente debe usar wss:// no ws://
+# El endpoint está correctamente registrado en app (no en api_router) para que
+# el proxy HTTP/1.1 → WS upgrade funcione sin prefijo adicional.
+# URL correcta en producción: wss://<host>/ws/alertas/{id_sede}?token=<jwt>
 @app.websocket("/ws/alertas/{id_sede}")
 async def websocket_alertas(websocket: WebSocket, id_sede: str):
     """
     WebSocket para recibir alertas en tiempo real filtradas por sede.
-    Conexión: ws://host/ws/alertas/{id_sede}?token=JWT_TOKEN
+    Conexión: wss://host/ws/alertas/{id_sede}?token=JWT_TOKEN
+    El token JWT debe pasarse como query param (los headers custom no son soportados en WS).
     """
     token = websocket.query_params.get("token")
     if not token:
@@ -88,13 +93,24 @@ async def websocket_alertas(websocket: WebSocket, id_sede: str):
         manager.disconnect(websocket, id_sede)
 
 
+# BUG-4 FIX: Endpoint de prueba para verificar que el path WS es alcanzable via HTTP
+# Render usa esto para confirmar que el proceso responde en esa ruta
+@app.get("/ws/health", tags=["Sistema"])
+async def ws_health():
+    """Verifica que el path /ws/ está expuesto (útil para diagnóstico en Render)."""
+    return {"ws_path": "/ws/alertas/{id_sede}", "protocol": "wss", "status": "reachable"}
+
+
 # ─── Health check ─────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Sistema"])
 async def health():
+    host = settings.CORS_ORIGINS[0].replace("https://", "").replace("http://", "") if settings.CORS_ORIGINS else "localhost:8000"
     return {
         "status": "ok",
         "environment": settings.ENVIRONMENT,
         "version": "3.0.0",
         "websocket_connections": manager.total_connections,
         "scheduler_running": scheduler.running,
+        # BUG-4 FIX: mostrar URL correcta wss:// para que el frontend sepa cómo conectarse
+        "websocket_url": f"wss://{host}/ws/alertas/{{id_sede}}?token={{jwt}}" if settings.ENVIRONMENT == "production" else "ws://localhost:8000/ws/alertas/{id_sede}?token={jwt}",
     }

@@ -55,6 +55,10 @@ async def get_kpis(
     """Retorna los 4 KPIs globales de la sede."""
     sede_id = _resolver_sede(current_user, id_sede)
 
+    # BUG-2 FIX: si el usuario no tiene sede, fallar claro en vez de retornar 0s sin sentido
+    if not sede_id:
+        raise HTTPException(status_code=400, detail="El usuario no tiene sede asignada. Contactar a super_admin.")
+
     # 1. Ocupación global (sum ocupacion_actual / sum capacidad_max * 100)
     ocup_stmt = (
         select(
@@ -166,6 +170,7 @@ async def get_ocupacion_por_galpon(
         resultado.append(OcupacionGalponItem(
             name=row.nombre,
             ocupacion_pct=pct,
+            ocup=pct,          # BUG-3 FIX: alias requerido por el frontend
             estado=estado,
         ))
 

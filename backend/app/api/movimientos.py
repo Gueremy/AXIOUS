@@ -51,10 +51,11 @@ async def create_movimiento(
         raise HTTPException(status_code=404, detail="Producto no encontrado")
 
     # 3. Separación de Entornos (INCOMPATIBLE table)
+    # BUG-5 FIX: 422 es el código correcto según RFC 9110 (contenido semánticamente incorrecto)
     if container.tipo_producto_permitido in INCOMPATIBLE:
         if producto.categoria in INCOMPATIBLE[container.tipo_producto_permitido]:
             raise HTTPException(
-                status_code=400, 
+                status_code=422,
                 detail=f"Incompatibilidad de producto. No se pueden mezclar productos de tipo {producto.categoria} en un container para {container.tipo_producto_permitido}."
             )
 
@@ -199,6 +200,9 @@ async def aprobar_movimiento(
 
     await db.commit()
     await db.refresh(movimiento)
+    # BUG-1 FIX: después del commit la sesión expira los atributos.
+    # Hay que refrescar container antes de acceder a .unidad_medida / .codigo
+    await db.refresh(container)
 
     # Obtener datos legibles para el log (best-effort)
     _producto = (await db.execute(select(Producto).where(Producto.id == movimiento.id_producto))).scalars().first()
@@ -250,6 +254,7 @@ async def rechazar_movimiento(
     await db.commit()
     await db.refresh(movimiento)
 
+    # BUG-1 FIX: recargar container desde BD después del commit para evitar lazy-load expired
     _rej_producto = (await db.execute(select(Producto).where(Producto.id == movimiento.id_producto))).scalars().first()
     _rej_container = (await db.execute(select(Container).where(Container.id == movimiento.id_container))).scalars().first()
 
