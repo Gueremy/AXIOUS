@@ -140,8 +140,11 @@ def run_qa_automation():
         return # Si no hay token de operario, no podemos hacer los tests siguientes
 
     # QA-02: Login con contraseña incorrecta
-    # Verificamos que el sistema detecte contraseñas inválidas
-    bad_form_data = urllib.parse.urlencode({"username": "operario1@skretting.cl", "password": "bad_password"})
+    # IMPORTANTE: Usamos un email inexistente, NO el del operario real.
+    # Si usáramos el email real con mala contraseña quemaríamos intentos del rate limiter
+    # para esa IP y el siguiente login (super_admin, jefe) fallaría con 429.
+    time.sleep(1)  # pequeña pausa entre logins para no disparar el rate limiter
+    bad_form_data = urllib.parse.urlencode({"username": "usuario_inexistente_qa@test.cl", "password": "bad_password"})
     status, body = make_request("POST", "/auth/login", payload=bad_form_data)
     if status == 401:
         print_success("QA-02: Login con contraseña incorrecta (401 Unauthorized)")
@@ -157,6 +160,7 @@ def run_qa_automation():
         print_fail("QA-04", status, body)
 
     # Preparativos QA-05: Necesitamos ser Super Admin para intentar crear usuarios
+    time.sleep(1)  # pausa entre logins consecutivos
     form_sa = urllib.parse.urlencode({"username": "super.admin1@skretting.cl", "password": "Skretting2026!"})
     st_sa, body_sa = make_request("POST", "/auth/login", payload=form_sa)
     token_sa = body_sa.get("access_token")
@@ -185,18 +189,35 @@ def run_qa_automation():
         print("❌ No se pudieron obtener containers o productos. Abortando QA-07 y QA-08.")
         return
 
-    # Extraemos 1 container normal (alimento) y 1 especializado (veterinario)
-    cont_normal = next((c for c in containers['items'] if c['tipo_producto_permitido'] == 'alimento'), None)
-    cont_vet = next((c for c in containers['items'] if c['tipo_producto_permitido'] == 'veterinario'), None)
-    
+    # Extraemos 1 container normal (alimento) con ESPACIO DISPONIBLE >= 100 kg
+    # IMPORTANTE: elegimos el que tenga más espacio libre para evitar error 400 por
+    # capacidad llena (las ejecuciones previas del script acumulan stock)
+    def espacio_libre(c):
+        return float(c.get('capacidad_max', 0)) - float(c.get('ocupacion_actual', 0))
+
+    alimento_containers = [c for c in containers['items'] if c['tipo_producto_permitido'] == 'alimento']
+    veterinario_containers = [c for c in containers['items'] if c['tipo_producto_permitido'] == 'veterinario']
+
+    # Elegir el container alimento con MÁS espacio libre (mínimo 100 kg para QA-07 + margen QA-19)
+    cont_normal = max(
+        (c for c in alimento_containers if espacio_libre(c) >= 100),
+        key=espacio_libre,
+        default=None
+    )
+    # Para el veterinario basta con que exista (QA-08 es un test de validación, no inserta)
+    cont_vet = next((c for c in veterinario_containers), None)
+
     prod_normal = next((p for p in productos['items'] if p['categoria'] == 'alimento'), None)
     prod_vet = next((p for p in productos['items'] if p['categoria'] == 'veterinario'), None)
 
     if not (cont_normal and prod_normal and cont_vet and prod_vet):
-        print("❌ Faltan datos en la BD para probar movimientos (se necesita al menos 1 container alimento y 1 veterinario).")
+        print("❌ Faltan datos en la BD. Necesario: ≥1 container alimento con 100kg libres y ≥1 veterinario.")
+        print(f"   Containers alimento disponibles: {len(alimento_containers)}")
+        for c in alimento_containers:
+            print(f"     {c['codigo']}: libre={espacio_libre(c):.1f} kg")
         return
-    
-    print("✅ Datos obtenidos correctamente.")
+
+    print(f"✅ Datos obtenidos. Container seleccionado: {cont_normal['codigo']} (libre: {espacio_libre(cont_normal):.1f} kg)")
 
     # -------------------------------------------------------------------------
     # MÓDULO 2: Movimientos
@@ -248,23 +269,27 @@ def run_qa_automation():
     else:
         print_fail("QA-08", status, body)
 
-    # QA-09: Aprobar el movimiento (Como Jefe de Bodega)
-    # Un operario no puede aprobar, así que hacemos login con el Jefe.
+    # Login del Jefe de Bodega — SIEMPRE, independiente de si QA-07 tuvo éxito
+    # (si está dentro del if, todo el módulo 3/4/5 queda sin token cuando QA-07 falla)
+    # Nota: usamos jefe.bodega2 para no bloquear jefe.bodega1 con intentos fallidos
+    time.sleep(1)  # pausa entre logins para evitar 429 desde IPs con rate limit compartido (Colab/CI)
+    form_jb = urllib.parse.urlencode({"username": "jefe.bodega2@skretting.cl", "password": "Skretting2026!"})
+    st_jb, body_jb = make_request("POST", "/auth/login", payload=form_jb)
     token_jb = None
-    if id_movimiento_generado:
-        # Nota: Usamos jefe.bodega2 porque si uno falla 5 veces se bloquea por 15 mins (anti-fuerza-bruta)
-        form_jb = urllib.parse.urlencode({"username": "jefe.bodega2@skretting.cl", "password": "Skretting2026!"})
-        st_jb, body_jb = make_request("POST", "/auth/login", payload=form_jb)
-        if st_jb == 200:
-            token_jb = body_jb.get("access_token")
-            # Llamamos al endpoint de aprobación
-            status, body = make_request("PATCH", f"/movimientos/{id_movimiento_generado}/aprobar", token=token_jb)
-            if status == 200:
-                print_success(f"QA-09: Movimiento aprobado exitosamente (200 OK)")
-            else:
-                print_fail("QA-09", status, body)
+    if st_jb == 200:
+        token_jb = body_jb.get("access_token")
+    else:
+        print(f"⚠️  Login jefe_bodega falló (Status {st_jb}) — QA-09/10/11/12/16..25 pueden fallar")
+
+    # QA-09: Aprobar el movimiento creado en QA-07
+    if id_movimiento_generado and token_jb:
+        status, body = make_request("PATCH", f"/movimientos/{id_movimiento_generado}/aprobar", token=token_jb)
+        if status == 200:
+            print_success(f"QA-09: Movimiento aprobado exitosamente (200 OK)")
         else:
-            print(f"❌ No se pudo hacer login como jefe_bodega. Status: {st_jb}, Body: {body_jb}")
+            print_fail("QA-09", status, body)
+    elif not id_movimiento_generado:
+        print("⚠️  QA-09 omitido — QA-07 no generó movimiento")
 
     # Payload base para los siguientes tests de aprobación/rechazo
     mov_qa10_payload = {
