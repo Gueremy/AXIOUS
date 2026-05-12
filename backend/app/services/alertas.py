@@ -370,29 +370,35 @@ async def evaluar_alertas(
     if a:
         alertas_creadas.append(a)
 
+    # BUG-5 FIX: Antes del commit, obtenemos el id_sede para evitar expiración de atributos
+    id_sede = None
+    if alertas_creadas and manager:
+        galpon = (await db.execute(
+            select(Galpon).where(Galpon.id == container.id_galpon)
+        )).scalars().first()
+        if galpon:
+            id_sede = galpon.id_sede
+
     # Commit las alertas y broadcast por WebSocket
     if alertas_creadas:
         await db.commit()
-
-        if manager:
-            # Obtener id_sede del container para broadcast
-            galpon = (await db.execute(
-                select(Galpon).where(Galpon.id == container.id_galpon)
-            )).scalars().first()
-            if galpon:
-                for alerta in alertas_creadas:
-                    await manager.broadcast_sede(galpon.id_sede, {
-                        "evento": "nueva_alerta",
-                        "alerta": {
-                            "id": alerta.id,
-                            "tipo": alerta.tipo,
-                            "severidad": alerta.severidad,
-                            "descripcion": alerta.descripcion,
-                            "id_container": alerta.id_container,
-                            "container_codigo": container.codigo,
-                            "fecha_generacion": str(alerta.fecha_generacion),
-                        }
-                    })
+        # Refrescamos las alertas para obtener IDs y fechas generadas por la BD si es necesario,
+        # pero para el broadcast usaremos datos ya en memoria para mayor velocidad.
+        
+        if manager and id_sede:
+            for alerta in alertas_creadas:
+                await manager.broadcast_sede(id_sede, {
+                    "evento": "nueva_alerta",
+                    "alerta": {
+                        "id": str(alerta.id),
+                        "tipo": alerta.tipo,
+                        "severidad": alerta.severidad,
+                        "descripcion": alerta.descripcion,
+                        "id_container": id_container,
+                        "container_codigo": container.codigo,
+                        "fecha_generacion": datetime.now(timezone.utc).isoformat(),
+                    }
+                })
 
     return alertas_creadas
 
@@ -441,26 +447,31 @@ async def evaluar_alertas_batch(
                 alertas.append(a)
 
         if alertas:
-            await db.commit()
-            total_creadas += len(alertas)
-
+            # BUG-5 FIX: Obtener id_sede antes del commit para evitar expiración
+            id_sede = None
             if manager:
                 galpon = (await db.execute(
                     select(Galpon).where(Galpon.id == container.id_galpon)
                 )).scalars().first()
                 if galpon:
-                    for alerta in alertas:
-                        await manager.broadcast_sede(galpon.id_sede, {
-                            "evento": "nueva_alerta",
-                            "alerta": {
-                                "id": alerta.id,
-                                "tipo": alerta.tipo,
-                                "severidad": alerta.severidad,
-                                "descripcion": alerta.descripcion,
-                                "id_container": alerta.id_container,
-                                "container_codigo": container.codigo,
-                            }
-                        })
+                    id_sede = galpon.id_sede
+
+            await db.commit()
+            total_creadas += len(alertas)
+
+            if manager and id_sede:
+                for alerta in alertas:
+                    await manager.broadcast_sede(id_sede, {
+                        "evento": "nueva_alerta",
+                        "alerta": {
+                            "id": str(alerta.id),
+                            "tipo": alerta.tipo,
+                            "severidad": alerta.severidad,
+                            "descripcion": alerta.descripcion,
+                            "id_container": container.id,
+                            "container_codigo": container.codigo,
+                        }
+                    })
 
     logger.info(f"evaluar_alertas_batch: {total_creadas} alertas creadas para {len(containers)} containers")
     return total_creadas
