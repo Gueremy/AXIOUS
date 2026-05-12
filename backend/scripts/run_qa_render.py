@@ -128,54 +128,52 @@ def run_qa_automation():
     # -------------------------------------------------------------------------
     print_header("MÓDULO 1 — Autenticación y Seguridad")
 
-    # QA-01: Login exitoso
-    # Simulamos a un operario ingresando sus credenciales
+    # QA-01: Login exitoso — autentica como Operario
     form_data = urllib.parse.urlencode({"username": "operario1@skretting.cl", "password": "Skretting2026!"})
     status, body = make_request("POST", "/auth/login", payload=form_data)
     if status == 200 and "access_token" in body:
         print_success("QA-01: Login exitoso (operario)")
-        token_operario = body["access_token"]  # Guardamos el token para usarlo luego
+        token_operario = body["access_token"]
     else:
         print_fail("QA-01: Login operario", status, body)
-        return # Si no hay token de operario, no podemos hacer los tests siguientes
+        return
 
-    # QA-02: Login con contraseña incorrecta
-    # IMPORTANTE: Usamos un email inexistente, NO el del operario real.
-    # Si usáramos el email real con mala contraseña quemaríamos intentos del rate limiter
-    # para esa IP y el siguiente login (super_admin, jefe) fallaría con 429.
-    time.sleep(1)  # pequeña pausa entre logins para no disparar el rate limiter
-    bad_form_data = urllib.parse.urlencode({"username": "usuario_inexistente_qa@test.cl", "password": "bad_password"})
-    status, body = make_request("POST", "/auth/login", payload=bad_form_data)
+    # QA-02: Token inválido rechazado (401) — NO llama a /auth/login
+    # Enviamos un Bearer token inventado a un endpoint protegido.
+    # Esto verifica que el middleware JWT rechaza correctamente sin consumir
+    # el rate limiter de /auth/login (que es por IP, máx 5/5min).
+    status, body = make_request("GET", "/containers/", token="token_falso_qa02_xyzxyz")
     if status == 401:
-        print_success("QA-02: Login con contraseña incorrecta (401 Unauthorized)")
+        print_success("QA-02: Token inválido rechazado (401 Unauthorized)")
     else:
         print_fail("QA-02", status, body)
 
-    # QA-04: Acceso sin token
-    # Intentamos acceder a una ruta protegida sin enviar el token JWT
+    # QA-04: Sin token — endpoint protegido debe devolver 401
     status, body = make_request("GET", "/containers/")
     if status == 401:
         print_success("QA-04: Acceso sin token bloqueado (401 Unauthorized)")
     else:
         print_fail("QA-04", status, body)
 
-    # Preparativos QA-05: Necesitamos ser Super Admin para intentar crear usuarios
-    time.sleep(1)  # pausa entre logins consecutivos
+    # Login Super Admin (2º login, para QA-05)
+    time.sleep(1)
     form_sa = urllib.parse.urlencode({"username": "super.admin1@skretting.cl", "password": "Skretting2026!"})
     st_sa, body_sa = make_request("POST", "/auth/login", payload=form_sa)
-    token_sa = body_sa.get("access_token")
+    token_sa = body_sa.get("access_token") if st_sa == 200 else None
 
     if token_sa:
-        # QA-05: Intentar registrar un usuario con contraseña demasiado simple
+        # QA-05: Intentar registrar usuario con contraseña débil
         payload_05 = {
-            "nombre": "Test QA", "email": "test_qa_debil@skretting.cl", 
+            "nombre": "Test QA", "email": "test_qa_debil@skretting.cl",
             "password": "12345", "rol": "operario", "codigo_empleado": "QA001"
         }
         status, body = make_request("POST", "/auth/register", payload=payload_05, token=token_sa)
-        if status == 422: # 422 = Unprocessable Entity (Validación Pydantic falló)
+        if status == 422:
             print_success("QA-05: Registro con contraseña débil bloqueado (422 Unprocessable Entity)")
         else:
             print_fail("QA-05", status, body)
+    else:
+        print(f"⚠️  QA-05 omitido — super_admin con 429 (ejecutar de nuevo en 5 min)")
 
     # -------------------------------------------------------------------------
     # EXTRACCIÓN DE DATOS REALES
