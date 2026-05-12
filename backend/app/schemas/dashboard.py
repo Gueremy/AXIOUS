@@ -4,10 +4,14 @@ from typing import Optional
 
 class KPIResponse(BaseModel):
     """KPIs globales de la sede."""
+    model_config = ConfigDict(populate_by_name=True)
+
     ocupacion_global: float
+    ocupacion_global_pct: float = 0.0   # alias descriptivo — mismo valor que ocupacion_global
     alertas_activas: int
     movimientos_hoy: int
-    proximo_vencimiento: Optional[int] = None  # None si no hay lotes con vencimiento
+    proximo_vencimiento: Optional[int] = None      # None si no hay lotes con vencimiento
+    proximo_vencimiento_dias: Optional[int] = None  # alias descriptivo — mismo valor
 
 
 class OcupacionGalponItem(BaseModel):

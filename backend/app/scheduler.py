@@ -10,11 +10,13 @@ Job 2: IntervalTrigger(minutes=30) — stock mínimo y discrepancias
 import logging
 from datetime import datetime, timezone
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import delete
 
+from app.core.config import settings
 from app.database import AsyncSessionLocal
 from app.models.refresh_token import RefreshToken
 from app.services.alertas import evaluar_alertas_batch
@@ -86,6 +88,29 @@ async def job_cleanup_tokens():
         logger.error(f"Cleanup tokens ERROR: {e}", exc_info=True)
 
 
+async def job_ping_render():
+    """
+    Job anti-cold-start para Render plan gratuito.
+
+    Render duerme el servidor tras 15 minutos de inactividad y tarda 30-60 segundos
+    en despertar, lo que arruinaría una demo con el cliente.
+    Este job llama a GET /health cada 14 minutos para mantener el servidor activo.
+
+    Solo se registra en el scheduler si ENVIRONMENT == 'production'.
+    En desarrollo no tiene sentido (el servidor local no duerme).
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as http:
+            url = settings.BASE_URL + "/health"
+            response = await http.get(url)
+            if response.status_code == 200:
+                logger.info(f"Ping Render OK: {url} → {response.status_code}")
+            else:
+                logger.warning(f"Ping Render retornó status inesperado: {response.status_code}")
+    except Exception as e:
+        logger.error(f"Ping Render ERROR (servidor puede estar iniciando): {e}")
+
+
 # ── Scheduler singleton ──────────────────────────────────────────────────────
 scheduler = AsyncIOScheduler(timezone="America/Santiago")
 
@@ -112,5 +137,18 @@ scheduler.add_job(
     name="Limpieza refresh tokens expirados",
     replace_existing=True,
 )
+
+# Job anti-cold-start: solo en producción (Render plan gratuito duerme a los 15 min)
+if settings.ENVIRONMENT == "production":
+    scheduler.add_job(
+        job_ping_render,
+        IntervalTrigger(minutes=14),
+        id="ping_render",
+        name="Ping anti-cold-start Render",
+        replace_existing=True,
+    )
+    logger.info("Ping anti-cold-start registrado (production mode, cada 14 min)")
+else:
+    logger.info("Ping anti-cold-start OMITIDO (solo corre en production)")
 
 logger.info(f"APScheduler configurado con {len(scheduler.get_jobs())} jobs")

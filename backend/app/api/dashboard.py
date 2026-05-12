@@ -123,9 +123,11 @@ async def get_kpis(
 
     return KPIResponse(
         ocupacion_global=ocupacion_global,
+        ocupacion_global_pct=ocupacion_global,        # alias descriptivo para los tests
         alertas_activas=int(alertas_activas),
         movimientos_hoy=int(movimientos_hoy),
         proximo_vencimiento=proximo_dias,
+        proximo_vencimiento_dias=proximo_dias,        # alias descriptivo para los tests
     )
 
 

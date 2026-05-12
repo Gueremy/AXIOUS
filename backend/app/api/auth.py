@@ -70,7 +70,7 @@ async def _save_refresh_token(
 
 # ─── POST /auth/login ─────────────────────────────────────────────────────────
 @router.post("/login", response_model=TokenResponse, summary="Iniciar sesión")
-@limiter.limit("100/5minutes")
+@limiter.limit("5/5minutes")
 async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
