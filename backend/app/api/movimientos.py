@@ -38,6 +38,12 @@ INCOMPATIBLE = {
 }
 
 
+def _require_scoped_sede(current_user: Usuario) -> str:
+    if not current_user.id_sede:
+        raise HTTPException(status_code=403, detail="El usuario no tiene una sede asignada para consultar movimientos.")
+    return current_user.id_sede
+
+
 @router.get("/", response_model=PaginatedResponse[MovimientoListItem])
 async def read_movimientos(
     q: str | None = None,
@@ -89,8 +95,8 @@ async def read_movimientos(
         .outerjoin(container_destino, Movimiento.id_container_destino == container_destino.id)
     )
 
-    if current_user.rol not in ("super_admin", "gerencia") and current_user.id_sede:
-        stmt = stmt.where(Galpon.id_sede == current_user.id_sede)
+    if current_user.rol not in ("super_admin", "gerencia"):
+        stmt = stmt.where(Galpon.id_sede == _require_scoped_sede(current_user))
 
     if estado:
         stmt = stmt.where(Movimiento.estado == estado)
@@ -381,8 +387,7 @@ async def read_movimientos_pendientes(
     )
     
     if current_user.rol != "super_admin":
-        if current_user.id_sede:
-            stmt = stmt.where(Galpon.id_sede == current_user.id_sede)
+        stmt = stmt.where(Galpon.id_sede == _require_scoped_sede(current_user))
 
     result = await db.execute(stmt)
     movimientos = result.scalars().all()
