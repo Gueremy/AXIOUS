@@ -195,6 +195,7 @@ def seed(session: Session):
 def main():
     print("Seed Skretting Chile Ltda.")
     print("-" * 40)
+    Base.metadata.create_all(bind=engine)
     with Session(engine) as session:
         limpiar_bd(session)
         seed(session)

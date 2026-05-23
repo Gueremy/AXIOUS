@@ -116,3 +116,35 @@ class MovimientoRead(BaseModel):
     origen: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MovimientoListItem(BaseModel):
+    id: str
+    id_container: str
+    id_container_destino: Optional[str] = None
+    id_producto: str
+    id_usuario: str
+    id_usuario_aprobador: Optional[str] = None
+    tipo: str
+    estado: str
+    cantidad: Decimal
+    numero_lote: str
+    fecha_hora: datetime
+    fecha_aprobacion: Optional[datetime] = None
+    fecha_vencimiento: Optional[datetime] = None
+    nombre_proveedor: Optional[str] = None
+    num_guia_despacho: Optional[str] = None
+    registro_sanitario: Optional[str] = None
+    temperatura_almacen: Optional[float] = None
+    motivo_rechazo: Optional[str] = None
+    observaciones: Optional[str] = None
+    origen: str
+
+    producto_nombre: str
+    container_codigo: str
+    container_destino_codigo: Optional[str] = None
+    operario_nombre: str
+    aprobador_nombre: Optional[str] = None
+    galpon_codigo: str
+
+    model_config = ConfigDict(from_attributes=True)
