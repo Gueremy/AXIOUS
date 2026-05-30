@@ -1,8 +1,9 @@
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, func
 from datetime import datetime, timezone
+from sqlalchemy.orm import aliased
 
 from app.database import get_db
 from app.models.movimiento import Movimiento
@@ -12,7 +13,9 @@ from app.models.galpon import Galpon
 from app.models.sede import Sede
 from app.models.usuario import Usuario
 from app.schemas.movimiento import (MovimientoCreate, MovimientoRead,
-                                    MovimientoOfflineCreate, MovimientoRechazar)
+                                    MovimientoOfflineCreate, MovimientoRechazar,
+                                    MovimientoListItem)
+from app.schemas.common import PaginatedResponse
 from app.core.dependencies import get_current_user, require_role
 from app.core.audit import log_action
 from app.core.logger import (
@@ -33,6 +36,101 @@ INCOMPATIBLE = {
     'quimico':  ['alimento', 'veterinario'],
     'veterinario': ['alimento']
 }
+
+
+def _require_scoped_sede(current_user: Usuario) -> str:
+    if not current_user.id_sede:
+        raise HTTPException(status_code=403, detail="El usuario no tiene una sede asignada para consultar movimientos.")
+    return current_user.id_sede
+
+
+@router.get("/", response_model=PaginatedResponse[MovimientoListItem])
+async def read_movimientos(
+    q: str | None = None,
+    estado: str | None = None,
+    tipo: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    current_user: Usuario = Depends(get_current_user),
+) -> Any:
+    usuario_operario = aliased(Usuario)
+    usuario_aprobador = aliased(Usuario)
+    container_destino = aliased(Container)
+
+    stmt = (
+        select(
+            Movimiento.id,
+            Movimiento.id_container,
+            Movimiento.id_container_destino,
+            Movimiento.id_producto,
+            Movimiento.id_usuario,
+            Movimiento.id_usuario_aprobador,
+            Movimiento.tipo,
+            Movimiento.estado,
+            Movimiento.cantidad,
+            Movimiento.numero_lote,
+            Movimiento.fecha_hora,
+            Movimiento.fecha_aprobacion,
+            Movimiento.fecha_vencimiento,
+            Movimiento.nombre_proveedor,
+            Movimiento.num_guia_despacho,
+            Movimiento.registro_sanitario,
+            Movimiento.temperatura_almacen,
+            Movimiento.motivo_rechazo,
+            Movimiento.observaciones,
+            Movimiento.origen,
+            Producto.nombre.label("producto_nombre"),
+            Container.codigo.label("container_codigo"),
+            container_destino.codigo.label("container_destino_codigo"),
+            usuario_operario.nombre.label("operario_nombre"),
+            usuario_aprobador.nombre.label("aprobador_nombre"),
+            Galpon.codigo.label("galpon_codigo"),
+        )
+        .join(Container, Movimiento.id_container == Container.id)
+        .join(Galpon, Container.id_galpon == Galpon.id)
+        .join(Producto, Movimiento.id_producto == Producto.id)
+        .join(usuario_operario, Movimiento.id_usuario == usuario_operario.id)
+        .outerjoin(usuario_aprobador, Movimiento.id_usuario_aprobador == usuario_aprobador.id)
+        .outerjoin(container_destino, Movimiento.id_container_destino == container_destino.id)
+    )
+
+    if current_user.rol not in ("super_admin", "gerencia"):
+        stmt = stmt.where(Galpon.id_sede == _require_scoped_sede(current_user))
+
+    if estado:
+        stmt = stmt.where(Movimiento.estado == estado)
+
+    if tipo:
+        stmt = stmt.where(Movimiento.tipo == tipo)
+
+    if q:
+        pattern = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                Producto.nombre.ilike(pattern),
+                Movimiento.numero_lote.ilike(pattern),
+                Container.codigo.ilike(pattern),
+                usuario_operario.nombre.ilike(pattern),
+                Galpon.codigo.ilike(pattern),
+            )
+        )
+
+    count_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
+    total = await db.scalar(count_stmt) or 0
+
+    result = await db.execute(
+        stmt.order_by(Movimiento.fecha_hora.desc()).offset(skip).limit(limit)
+    )
+    movimientos = [dict(row) for row in result.mappings().all()]
+
+    return {
+        "items": movimientos,
+        "total": total,
+        "page": (skip // limit) + 1 if limit > 0 else 1,
+        "size": limit,
+        "pages": (total + limit - 1) // limit if limit > 0 else 1,
+    }
 
 @router.post("/", response_model=MovimientoRead, status_code=status.HTTP_201_CREATED)
 async def create_movimiento(
@@ -289,8 +387,7 @@ async def read_movimientos_pendientes(
     )
     
     if current_user.rol != "super_admin":
-        if current_user.id_sede:
-            stmt = stmt.where(Galpon.id_sede == current_user.id_sede)
+        stmt = stmt.where(Galpon.id_sede == _require_scoped_sede(current_user))
 
     result = await db.execute(stmt)
     movimientos = result.scalars().all()
