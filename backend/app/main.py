@@ -104,7 +104,7 @@ async def ws_health():
 # ─── Health check ─────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Sistema"])
 async def health():
-    host = settings.CORS_ORIGINS[0].replace("https://", "").replace("http://", "") if settings.CORS_ORIGINS else "localhost:8000"
+    host = settings.BASE_URL.replace("https://", "").replace("http://", "")
     return {
         "status": "ok",
         "environment": settings.ENVIRONMENT,
