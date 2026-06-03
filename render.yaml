@@ -22,7 +22,9 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: CORS_ORIGINS
-        value: '["http://localhost:5173"]'
+        value: '["https://salmonwise-inventory.vercel.app","http://localhost:5173"]'
+      - key: BASE_URL
+        value: https://axious-backend.onrender.com
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "60"
       - key: REFRESH_TOKEN_EXPIRE_DAYS
