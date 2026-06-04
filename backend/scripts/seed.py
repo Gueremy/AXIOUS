@@ -30,12 +30,11 @@ engine = create_engine(settings.DATABASE_URL_SYNC, echo=False)
 
 
 def limpiar_bd(session: Session):
-    for tabla in [
-        "log_auditoria", "alerta", "movimiento",
-        "usuario_galpon", "container", "galpon",
-        "usuario", "producto", "sede", "refresh_token",
-    ]:
-        session.execute(text(f"DELETE FROM {tabla}"))
+    # TRUNCATE bypasses row-level DELETE triggers (e.g. trg_movimiento_immutable)
+    session.execute(text(
+        "TRUNCATE TABLE log_auditoria, alerta, movimiento, usuario_galpon, "
+        "container, galpon, usuario, producto, sede, refresh_token RESTART IDENTITY CASCADE"
+    ))
     session.commit()
     print("  BD limpiada")
 
