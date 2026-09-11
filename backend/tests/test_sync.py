@@ -98,7 +98,12 @@ class TestSync:
             "tipo": "entrada_proveedor",
             "cantidad": 50,
             "numero_lote": "LOT-OFF-002",
+            "fecha_fabricacion": (datetime.utcnow() - timedelta(days=30)).isoformat(),
             "fecha_vencimiento": (datetime.utcnow() + timedelta(days=90)).isoformat(),
+            "nombre_proveedor": "BioMar",
+            "num_guia_despacho": "GD-LLENO",
+            "registro_sanitario": "RS-LLENO",
+            "temperatura_almacen": -2.5,
         }]
         r = await client.post(
             "/movimientos/sync",
@@ -122,6 +127,7 @@ class TestSync:
             "tipo": "entrada_proveedor",
             "cantidad": 50,
             "numero_lote": "LOT-OFF-003",
+            "fecha_fabricacion": (datetime.utcnow() - timedelta(days=30)).isoformat(),
             "fecha_vencimiento": (datetime.utcnow() + timedelta(days=90)).isoformat(),
             "nombre_proveedor": "BioMar",
             "num_guia_despacho": "GD-99",
@@ -158,7 +164,12 @@ class TestSync:
                 "tipo": "entrada_proveedor",
                 "cantidad": 10,
                 "numero_lote": "LOT-MIX-1",
+                "fecha_fabricacion": (datetime.utcnow() - timedelta(days=30)).isoformat(),
                 "fecha_vencimiento": (datetime.utcnow() + timedelta(days=60)).isoformat(),
+                "nombre_proveedor": "BioMar",
+                "num_guia_despacho": "GD-MIX",
+                "registro_sanitario": "RS-MIX",
+                "temperatura_almacen": -2.5,
             },
             {   # Rechazar — container no existe
                 "uuid_local": "mix-bad",
@@ -180,3 +191,64 @@ class TestSync:
         acciones = {res["uuid_local"]: res["accion"] for res in resultados}
         assert acciones["mix-ok"] == "aplicar"
         assert acciones["mix-bad"] == "rechazar"
+
+    async def test_sync_es_idempotente_por_uuid_local(
+        self, client: AsyncClient, db: AsyncSession, sede, container, producto
+    ):
+        token = await _login(client, db, sede.id)
+        payload = [{
+            "uuid_local": "uuid-idempotente",
+            "id_container": container.id,
+            "id_producto": producto.id,
+            "tipo": "salida_produccion",
+            "cantidad": 10,
+            "numero_lote": "E2E-PREVIEW-IDEMPOTENTE",
+            "fecha_vencimiento": (datetime.utcnow() + timedelta(days=60)).isoformat(),
+        }]
+
+        first = await client.post(
+            "/movimientos/sync", json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        second = await client.post(
+            "/movimientos/sync", json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert first.json()["resultados"][0]["id_movimiento"] == second.json()["resultados"][0]["id_movimiento"]
+
+    async def test_sync_traslado_conserva_destino(
+        self, client: AsyncClient, db: AsyncSession, sede, galpon, container, producto
+    ):
+        destino = Container(
+            id=str(uuid.uuid4()), id_galpon=galpon.id,
+            codigo="SYNC-DESTINO", posicion_fila=4, posicion_col=2,
+            capacidad_max=Decimal("1000.00"), unidad_medida="kg",
+            ocupacion_actual=Decimal("100.00"), estado="disponible",
+            tipo_producto_permitido="alimento",
+        )
+        db.add(destino)
+        await db.flush()
+        token = await _login(client, db, sede.id)
+        payload = [{
+            "uuid_local": "uuid-traslado",
+            "id_container": container.id,
+            "id_container_destino": destino.id,
+            "id_producto": producto.id,
+            "tipo": "traslado_interno",
+            "cantidad": 25,
+            "numero_lote": "E2E-PREVIEW-TRASLADO",
+            "fecha_vencimiento": (datetime.utcnow() + timedelta(days=60)).isoformat(),
+        }]
+
+        response = await client.post(
+            "/movimientos/sync", json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        result = response.json()["resultados"][0]
+        assert result["accion"] == "aplicar"
+        movimiento = await db.get(Movimiento, result["id_movimiento"])
+        assert movimiento.id_container_destino == destino.id

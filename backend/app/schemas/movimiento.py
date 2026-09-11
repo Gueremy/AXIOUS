@@ -65,11 +65,15 @@ class MovimientoOfflineCreate(BaseModel):
     tipo:                str
     cantidad:            Decimal = Field(gt=0, lt=999999)
     numero_lote:         str = "OFFLINE"
+    fecha_fabricacion:   Optional[datetime] = None
     fecha_vencimiento:   Optional[datetime] = None
     nombre_proveedor:    Optional[str] = None
     num_guia_despacho:   Optional[str] = None
     registro_sanitario:  Optional[str] = None
     temperatura_almacen: Optional[float] = None
+    num_receta_retenida: Optional[str] = None
+    num_autorizacion_sag: Optional[str] = None
+    id_container_destino: Optional[str] = None
     observaciones:       Optional[str] = None
 
     @field_validator("tipo")
@@ -79,6 +83,12 @@ class MovimientoOfflineCreate(BaseModel):
         if v not in allowed:
             raise ValueError(f"tipo debe ser uno de: {', '.join(sorted(allowed))}")
         return v
+
+    @model_validator(mode="after")
+    def validar_traslado(self):
+        if self.tipo == "traslado_interno" and not self.id_container_destino:
+            raise ValueError("id_container_destino es obligatorio para traslados")
+        return self
 
 
 class MovimientoAprobar(BaseModel):

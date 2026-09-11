@@ -30,6 +30,7 @@ class Movimiento(Base):
     id_movimiento_original = Column(String(36),
                                     ForeignKey("movimiento.id"),
                                     nullable=True)   # solo en correcciones
+    uuid_local = Column(String(36), nullable=True, unique=True, index=True)
 
     # Tipo y estado
     tipo = Column(

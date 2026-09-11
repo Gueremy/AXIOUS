@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError
+from sqlalchemy import select
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -20,7 +21,8 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logger import log_sistema_iniciado, log_sistema_detenido
 from app.core.security import verify_token
-from app.database import engine
+from app.database import AsyncSessionLocal, engine
+from app.models.usuario import Usuario
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
 from app.websockets import manager
 from app.scheduler import scheduler
@@ -80,10 +82,22 @@ async def websocket_alertas(websocket: WebSocket, id_sede: str):
         await websocket.close(code=4001, reason="Token requerido")
         return
     try:
-        verify_token(token, expected_type="access")
+        payload = verify_token(token, expected_type="access")
     except JWTError:
         await websocket.close(code=4001, reason="Token inválido o expirado")
         return
+
+    async with AsyncSessionLocal() as db:
+        usuario = (
+            await db.execute(select(Usuario).where(Usuario.id == payload.get("sub")))
+        ).scalar_one_or_none()
+        if (
+            not usuario
+            or not usuario.activo
+            or (usuario.rol != "super_admin" and usuario.id_sede != id_sede)
+        ):
+            await websocket.close(code=4003, reason="Sin acceso a esta sede")
+            return
 
     await manager.connect(websocket, id_sede)
     try:

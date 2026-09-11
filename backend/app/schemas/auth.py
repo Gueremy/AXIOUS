@@ -43,3 +43,23 @@ class ResetPasswordRequest(BaseModel):
         if not re.search(r"[^A-Za-z0-9]", v):
             raise ValueError("Debe incluir al menos un carácter especial")
         return v
+
+
+class ChangePasswordRequest(BaseModel):
+    contrasena_actual: str
+    nueva_contrasena: str
+
+    @field_validator("nueva_contrasena")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Mínimo 8 caracteres")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Debe incluir al menos una mayúscula")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Debe incluir al menos una minúscula")
+        if not re.search(r"\d", v):
+            raise ValueError("Debe incluir al menos un número")
+        if not re.search(r"[^A-Za-z0-9]", v):
+            raise ValueError("Debe incluir al menos un carácter especial")
+        return v

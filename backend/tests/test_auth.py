@@ -91,3 +91,55 @@ class TestEndpointProtegido:
         token = login.json()["access_token"]
         r = await client.get("/containers/", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 200
+
+
+class TestChangePassword:
+    async def test_cambia_password_y_revoca_refresh_tokens(
+        self, client: AsyncClient, db: AsyncSession, sede
+    ):
+        creds = await _crear_usuario(db, sede_id=sede.id)
+        login = await client.post(
+            "/auth/login",
+            data={"username": creds["email"], "password": creds["password"]},
+        )
+        tokens = login.json()
+
+        changed = await client.post(
+            "/auth/change-password",
+            json={
+                "contrasena_actual": creds["password"],
+                "nueva_contrasena": "NuevaClave2026!",
+            },
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        assert changed.status_code == 200
+
+        old_refresh = await client.post(
+            "/auth/refresh",
+            json={"refresh_token": tokens["refresh_token"]},
+        )
+        assert old_refresh.status_code == 401
+
+        relogin = await client.post(
+            "/auth/login",
+            data={"username": creds["email"], "password": "NuevaClave2026!"},
+        )
+        assert relogin.status_code == 200
+
+    async def test_rechaza_password_actual_incorrecta(
+        self, client: AsyncClient, db: AsyncSession, sede
+    ):
+        creds = await _crear_usuario(db, sede_id=sede.id)
+        login = await client.post(
+            "/auth/login",
+            data={"username": creds["email"], "password": creds["password"]},
+        )
+        changed = await client.post(
+            "/auth/change-password",
+            json={
+                "contrasena_actual": "Incorrecta2026!",
+                "nueva_contrasena": "NuevaClave2026!",
+            },
+            headers={"Authorization": f"Bearer {login.json()['access_token']}"},
+        )
+        assert changed.status_code == 400

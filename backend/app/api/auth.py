@@ -42,7 +42,13 @@ from app.core.security import (
 from app.database import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.usuario import Usuario
-from app.schemas.auth import RefreshRequest, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    RefreshRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.schemas.usuario import UsuarioCreate, UsuarioRead
 
 router = APIRouter()
@@ -210,6 +216,38 @@ async def me(current_user: Usuario = Depends(get_current_user)):
     Nunca incluye rut ni password_hash (Ley 19.628).
     """
     return current_user
+
+
+@router.post("/change-password", summary="Cambiar contraseña autenticada")
+async def change_password(
+    body: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if not verify_password(body.contrasena_actual, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña actual no es correcta",
+        )
+    if verify_password(body.nueva_contrasena, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe ser diferente",
+        )
+
+    current_user.password_hash = get_password_hash(body.nueva_contrasena)
+    tokens = (
+        await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.id_usuario == current_user.id,
+                RefreshToken.revocado == False,  # noqa: E712
+            )
+        )
+    ).scalars().all()
+    for token in tokens:
+        token.revocado = True
+    await db.commit()
+    return {"mensaje": "Contraseña actualizada exitosamente. Inicia sesión nuevamente."}
 
 
 # ─── POST /auth/logout ────────────────────────────────────────────────────────
