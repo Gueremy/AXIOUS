@@ -12,6 +12,7 @@ from app.models.v2.solicitud_movimiento import SolicitudMovimiento
 from app.models.v2.movimiento import MovimientoV2
 from app.models.v2.regla_ubicacion import ReglaUbicacion
 from app.models.v2.alerta import ReglaAlertaV2, AlertaV2
+from app.models.v2.modulo import ModuloOrganizacion
 
 __all__ = [
     "Organizacion",
@@ -32,4 +33,5 @@ __all__ = [
     "ReglaUbicacion",
     "ReglaAlertaV2",
     "AlertaV2",
+    "ModuloOrganizacion",
 ]

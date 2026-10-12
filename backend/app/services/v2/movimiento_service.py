@@ -23,6 +23,7 @@ from app.models.v2.solicitud_movimiento import SolicitudMovimiento
 from app.models.v2.tipo_movimiento import TipoMovimiento
 from app.models.v2.ubicacion import Ubicacion
 from app.services.v2.reglas_service import ReglasUbicacionService
+from app.core.events.event_bus import DomainEvent, EventBus
 
 
 class MovimientoService:
@@ -46,6 +47,12 @@ class MovimientoService:
         """Valida y crea una solicitud de movimiento; si no requiere aprobación, la ejecuta de inmediato."""
         if cantidad <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La cantidad debe ser mayor a cero")
+
+        # Fase 2D: Si el pack salmonero está activo para la organización, exigir campos regulatorios
+        from app.core.modules.registry import ModuleRegistry
+        if await ModuleRegistry.is_enabled(db, tenant.id_organizacion, "pack_salmonero"):
+            from app.modules.pack_salmonero.validator import validar_atributos_salmoneros
+            validar_atributos_salmoneros(atributos or {})
 
         # 1. Validar Tipo de Movimiento
         stmt_tipo = select(TipoMovimiento).where(
@@ -215,6 +222,14 @@ class MovimientoService:
 
         await db.commit()
         await db.refresh(solicitud)
+
+        await EventBus.publish(
+            DomainEvent(
+                name="movimiento.rechazado",
+                id_organizacion=tenant.id_organizacion,
+                payload={"id_solicitud": solicitud.id, "motivo": motivo_rechazo, "item_id": solicitud.id_item},
+            )
+        )
         return solicitud
 
     @staticmethod
@@ -349,5 +364,24 @@ class MovimientoService:
             },
         )
         db.add(auditoria)
+
+        await EventBus.publish(
+            DomainEvent(
+                name="movimiento.creado",
+                id_organizacion=tenant.id_organizacion,
+                payload={
+                    "id_movimiento": movimiento.id,
+                    "id_solicitud": solicitud.id,
+                    "tipo": tipo.codigo,
+                    "efecto": efecto,
+                    "id_item": solicitud.id_item,
+                    "id_lote": solicitud.id_lote,
+                    "id_ubicacion_destino": solicitud.id_ubicacion_destino,
+                    "id_ubicacion_origen": solicitud.id_ubicacion_origen,
+                    "cantidad": float(solicitud.cantidad),
+                    "atributos": solicitud.atributos or {},
+                },
+            )
+        )
 
         return movimiento

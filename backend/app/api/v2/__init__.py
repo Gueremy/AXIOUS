@@ -12,6 +12,9 @@ from app.api.v2.alertas import router as alertas_router
 from app.modules.importacion import router as importacion_router
 from app.api.v2.dashboard import router as dashboard_router
 from app.api.v2.bi import router as bi_router
+from app.api.v2.modulos import router as modulos_router
+from app.modules.pack_salmonero import router as pack_salmonero_router
+from app.modules.picking import router as picking_router
 
 api_v2_router = APIRouter(prefix="/api/v2")
 
@@ -27,3 +30,6 @@ api_v2_router.include_router(alertas_router)
 api_v2_router.include_router(importacion_router)
 api_v2_router.include_router(dashboard_router)
 api_v2_router.include_router(bi_router)
+api_v2_router.include_router(modulos_router)
+api_v2_router.include_router(pack_salmonero_router)
+api_v2_router.include_router(picking_router)
