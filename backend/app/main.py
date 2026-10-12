@@ -16,6 +16,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api import api_router
+from app.api.v2 import api_v2_router
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logger import log_sistema_iniciado, log_sistema_detenido
@@ -61,6 +62,7 @@ app.add_middleware(
 
 # ─── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(api_router)
+app.include_router(api_v2_router)
 
 
 # ─── WebSocket — Alertas en tiempo real por sede ──────────────────────────────
