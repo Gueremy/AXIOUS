@@ -24,6 +24,10 @@ class Usuario(Base):
     )
     id_sede = Column(String(36), ForeignKey("sede.id"),
                      nullable=True)
+    id_organizacion = Column(String(36), ForeignKey("v2_organizacion.id"),
+                             nullable=True, index=True)
+    id_rol_v2       = Column(String(36), ForeignKey("v2_rol.id"),
+                             nullable=True, index=True)
     turno   = Column(Enum("A", "B", name="turno_usuario"),
                      nullable=True)
     activo  = Column(Boolean, default=True)
