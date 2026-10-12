@@ -20,7 +20,9 @@ from app.schemas.v2.movimiento import (
     TipoMovimientoCreate,
     TipoMovimientoRead,
 )
+from app.schemas.v2.sync import SyncBatchRequest, SyncBatchResponse
 from app.services.v2.movimiento_service import MovimientoService
+from app.services.v2.sync_service import OfflineSyncService
 
 router = APIRouter(prefix="/movimientos", tags=["V2 - Movimientos"])
 
@@ -222,3 +224,21 @@ async def consultar_saldos(
     stmt = stmt.order_by(SaldoStock.fecha_actualizacion.desc())
     res = await db.execute(stmt)
     return res.scalars().all()
+
+
+# ─── Sincronización Offline (Fase 1C) ────────────────────────────────────────
+
+@router.post("/sync", response_model=SyncBatchResponse)
+async def sincronizar_movimientos_offline(
+    batch: SyncBatchRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Sincroniza un lote de movimientos generados sin conexión en cliente PWA / Dexie.js.
+    Aplica idempotencia por uuid_local y garantiza aislamiento transaccional por movimiento.
+    """
+    if not tenant.tiene_permiso("movimiento:create"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente para sincronizar movimientos")
+
+    return await OfflineSyncService.procesar_lote_sync(db, tenant, batch)

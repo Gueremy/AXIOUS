@@ -41,6 +41,7 @@ class MovimientoService:
         observaciones: Optional[str] = None,
         uuid_local: Optional[str] = None,
         atributos: Optional[dict] = None,
+        auto_commit: bool = True,
     ) -> SolicitudMovimiento:
         """Valida y crea una solicitud de movimiento; si no requiere aprobación, la ejecuta de inmediato."""
         if cantidad <= 0:
@@ -144,8 +145,11 @@ class MovimientoService:
             solicitud.fecha_resolucion = func.now()
             await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
 
-        await db.commit()
-        await db.refresh(solicitud)
+        if auto_commit:
+            await db.commit()
+            await db.refresh(solicitud)
+        else:
+            await db.flush()
         return solicitud
 
     @staticmethod
