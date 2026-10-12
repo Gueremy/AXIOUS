@@ -10,6 +10,7 @@ from app.models.v2.rbac import Rol, Permiso, RolPermiso, UsuarioSitio
 from app.models.v2.tipo_movimiento import TipoMovimiento
 from app.models.v2.solicitud_movimiento import SolicitudMovimiento
 from app.models.v2.movimiento import MovimientoV2
+from app.models.v2.regla_ubicacion import ReglaUbicacion
 
 __all__ = [
     "Organizacion",
@@ -27,4 +28,5 @@ __all__ = [
     "TipoMovimiento",
     "SolicitudMovimiento",
     "MovimientoV2",
+    "ReglaUbicacion",
 ]

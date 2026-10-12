@@ -22,6 +22,7 @@ from app.models.v2.saldo_stock import SaldoStock
 from app.models.v2.solicitud_movimiento import SolicitudMovimiento
 from app.models.v2.tipo_movimiento import TipoMovimiento
 from app.models.v2.ubicacion import Ubicacion
+from app.services.v2.reglas_service import ReglasUbicacionService
 
 
 class MovimientoService:
@@ -266,13 +267,24 @@ class MovimientoService:
             if not ubi_dest:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ubicación destino requerida para este movimiento")
 
-            # Validar capacidad máxima
-            nueva_ocupacion = ubi_dest.ocupacion_actual + solicitud.cantidad
-            if nueva_ocupacion > ubi_dest.capacidad_maxima:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Capacidad superada en destino. Capacidad máxima: {ubi_dest.capacidad_maxima}, Ocupación actual: {ubi_dest.ocupacion_actual}, Ingreso solicitado: {solicitud.cantidad}",
-                )
+            # Cargar item y lote para evaluación de reglas
+            stmt_it = select(Item).where(Item.id == solicitud.id_item)
+            item_obj = (await db.execute(stmt_it)).scalar_one()
+
+            lote_obj = None
+            if solicitud.id_lote:
+                stmt_lt = select(Lote).where(Lote.id == solicitud.id_lote)
+                lote_obj = (await db.execute(stmt_lt)).scalar_one_or_none()
+
+            # Evaluación centralizada de reglas de ubicación
+            await ReglasUbicacionService.evaluar_ingreso(
+                db=db,
+                id_organizacion=tenant.id_organizacion,
+                ubi_dest=ubi_dest,
+                item=item_obj,
+                lote=lote_obj,
+                cantidad=solicitud.cantidad,
+            )
 
             # Buscar o crear saldo en destino
             stmt_saldo_dest = select(SaldoStock).where(
@@ -295,7 +307,7 @@ class MovimientoService:
                 )
                 db.add(saldo_dest)
 
-            ubi_dest.ocupacion_actual = nueva_ocupacion
+            ubi_dest.ocupacion_actual += solicitud.cantidad
 
         # 4. Registrar Movimiento Inmutable
         movimiento = MovimientoV2(
