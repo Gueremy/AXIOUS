@@ -8,6 +8,7 @@ from app.api.v2.lotes import router as lotes_router
 from app.api.v2.esquemas import router as esquemas_router
 from app.api.v2.movimientos import router as movimientos_router
 from app.api.v2.reglas import router as reglas_router
+from app.api.v2.alertas import router as alertas_router
 
 api_v2_router = APIRouter(prefix="/api/v2")
 
@@ -19,3 +20,4 @@ api_v2_router.include_router(lotes_router)
 api_v2_router.include_router(esquemas_router)
 api_v2_router.include_router(movimientos_router)
 api_v2_router.include_router(reglas_router)
+api_v2_router.include_router(alertas_router)
