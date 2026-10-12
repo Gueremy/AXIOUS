@@ -8,9 +8,23 @@ from app.models.alerta import Alerta
 from app.models.refresh_token import RefreshToken
 from app.models.log_auditoria import LogAuditoria
 
+# Modelos SalmoTrack v2
+from app.models.v2 import (
+    Organizacion,
+    Sitio,
+    Zona,
+    Ubicacion,
+    Item,
+    Lote,
+    EsquemaAtributos,
+    SaldoStock,
+)
+
 __all__ = [
     "Sede", "Galpon", "Container", "Producto",
     "Usuario", "UsuarioGalpon", "Movimiento", "Alerta",
     "RefreshToken", "LogAuditoria",
+    "Organizacion", "Sitio", "Zona", "Ubicacion",
+    "Item", "Lote", "EsquemaAtributos", "SaldoStock",
 ]
 
