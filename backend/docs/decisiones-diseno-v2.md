@@ -56,10 +56,9 @@ Previene el bloqueo o congelamiento artificial de inventario por solicitudes aba
 ### Decisión
 El aislamiento multi-tenant no descansará únicamente en validaciones lógicas del código de FastAPI, sino que estará blindado por restricciones en la base de datos:
 * Toda tabla de negocio incorpora `id_organizacion` obligatorio.
-* Restricciones compuestas:
-  - `UNIQUE(id_organizacion, codigo)` en `Item` y `Sitio`.
-  - Claves foráneas y checks que impiden relaciones entre entidades de distintas organizaciones (ej. una zona no puede tener como padre una zona de otra organización).
-* Bloqueo estricto en el ORM: Toda consulta inyecta automáticamente el filtro por organización del usuario autenticado.
+* Restricciones únicas por organización en códigos de `Item` y `Sitio`; checks e índices para stock y movimientos.
+* `get_current_tenant` resuelve la organización desde la cuenta persistida, y los endpoints y servicios validan la pertenencia de cada recurso enlazado antes de escribir. Las lecturas por sitio aplican filtros explícitos en la consulta.
+* Las claves foráneas actuales garantizan que los recursos referidos existen, pero no codifican por sí solas la igualdad de organización entre tablas. Si otros procesos van a escribir directamente en PostgreSQL, deben aplicar las mismas comprobaciones o añadirse claves compuestas antes de concederles acceso de escritura.
 
 ---
 

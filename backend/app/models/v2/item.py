@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class Item(Base):
@@ -15,7 +16,7 @@ class Item(Base):
     nombre = Column(String(150), nullable=False)
     categoria = Column(String(50), nullable=False)
     unidad_medida = Column(String(20), nullable=False)
-    atributos = Column(JSON, default=dict, nullable=False)
+    atributos = Column(JSONDocument, default=dict, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

@@ -1,12 +1,12 @@
 import math
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
 from app.core.modules.registry import require_module_enabled
-from app.core.site_access import allowed_location_ids
+from app.core.site_access import allowed_location_ids, scope_movement_query
 from app.database import get_db
 from app.models.v2.movimiento import MovimientoV2
 from app.models.v2.saldo_stock import SaldoStock
@@ -37,6 +37,8 @@ async def listar_tipos_movimiento(
     db: AsyncSession = Depends(get_db),
 ):
     """Lista los tipos de movimiento configurados para la organización."""
+    if not tenant.tiene_permiso("movimiento:create") and not tenant.tiene_permiso("stock:read"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
     stmt = select(TipoMovimiento).where(
         TipoMovimiento.id_organizacion == tenant.id_organizacion,
         TipoMovimiento.activo == True,
@@ -117,14 +119,12 @@ async def listar_solicitudes(
     db: AsyncSession = Depends(get_db),
 ):
     """Lista solicitudes de movimiento de la organización con paginación."""
+    if not tenant.tiene_permiso("movimiento:create") and not tenant.tiene_permiso("movimiento:approve"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
     stmt = select(SolicitudMovimiento).where(SolicitudMovimiento.id_organizacion == tenant.id_organizacion)
-    if tenant.sitios_permitidos is not None:
-        locations = allowed_location_ids(tenant)
-        stmt = stmt.where(
-            or_(SolicitudMovimiento.id_ubicacion_origen.is_not(None), SolicitudMovimiento.id_ubicacion_destino.is_not(None)),
-            or_(SolicitudMovimiento.id_ubicacion_origen.is_(None), SolicitudMovimiento.id_ubicacion_origen.in_(locations)),
-            or_(SolicitudMovimiento.id_ubicacion_destino.is_(None), SolicitudMovimiento.id_ubicacion_destino.in_(locations)),
-        )
+    if not tenant.tiene_permiso("movimiento:approve"):
+        stmt = stmt.where(SolicitudMovimiento.id_usuario_solicitante == tenant.usuario.id)
+    stmt = scope_movement_query(stmt, tenant, SolicitudMovimiento)
     if estado:
         stmt = stmt.where(SolicitudMovimiento.estado == estado)
 
@@ -179,14 +179,10 @@ async def listar_movimientos(
     db: AsyncSession = Depends(get_db),
 ):
     """Consulta el libro inmutable de movimientos confirmados de la organización."""
+    if not tenant.tiene_permiso("stock:read"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
     stmt = select(MovimientoV2).where(MovimientoV2.id_organizacion == tenant.id_organizacion)
-    if tenant.sitios_permitidos is not None:
-        locations = allowed_location_ids(tenant)
-        stmt = stmt.where(
-            or_(MovimientoV2.id_ubicacion_origen.is_not(None), MovimientoV2.id_ubicacion_destino.is_not(None)),
-            or_(MovimientoV2.id_ubicacion_origen.is_(None), MovimientoV2.id_ubicacion_origen.in_(locations)),
-            or_(MovimientoV2.id_ubicacion_destino.is_(None), MovimientoV2.id_ubicacion_destino.in_(locations)),
-        )
+    stmt = scope_movement_query(stmt, tenant, MovimientoV2)
     if efecto_stock:
         stmt = stmt.where(MovimientoV2.efecto_stock == efecto_stock)
 
@@ -209,17 +205,13 @@ async def consultar_trazabilidad(
     db: AsyncSession = Depends(get_db),
 ):
     """Retorna la cadena inmutable de custodia para un lote o ítem específico."""
+    if not tenant.tiene_permiso("stock:read"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
     if not id_lote and not id_item:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debe especificar id_lote o id_item para trazabilidad")
 
     stmt = select(MovimientoV2).where(MovimientoV2.id_organizacion == tenant.id_organizacion)
-    if tenant.sitios_permitidos is not None:
-        locations = allowed_location_ids(tenant)
-        stmt = stmt.where(
-            or_(MovimientoV2.id_ubicacion_origen.is_not(None), MovimientoV2.id_ubicacion_destino.is_not(None)),
-            or_(MovimientoV2.id_ubicacion_origen.is_(None), MovimientoV2.id_ubicacion_origen.in_(locations)),
-            or_(MovimientoV2.id_ubicacion_destino.is_(None), MovimientoV2.id_ubicacion_destino.in_(locations)),
-        )
+    stmt = scope_movement_query(stmt, tenant, MovimientoV2)
     if id_lote:
         stmt = stmt.where(MovimientoV2.id_lote == id_lote)
     if id_item:
@@ -238,6 +230,8 @@ async def consultar_saldos(
     db: AsyncSession = Depends(get_db),
 ):
     """Consulta los saldos de stock consolidados por ubicación, ítem o lote."""
+    if not tenant.tiene_permiso("stock:read"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
     stmt = select(SaldoStock).where(SaldoStock.id_organizacion == tenant.id_organizacion)
     if tenant.sitios_permitidos is not None:
         stmt = stmt.where(SaldoStock.id_ubicacion.in_(allowed_location_ids(tenant)))

@@ -23,10 +23,12 @@ from app.core.limiter import limiter
 from app.core.logger import log_sistema_iniciado, log_sistema_detenido
 from app.core.security import verify_token
 from app.core.dependencies_v2 import get_current_tenant
+from app.core.events.event_bus import EventBus
 from app.database import AsyncSessionLocal, engine
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
 from app.models.usuario import Usuario
 from app.models.v2.sitio import Sitio
+from app.integraciones.webhooks import encolar_evento_webhook
 from app.websockets import manager
 from app.scheduler import scheduler
 
@@ -35,6 +37,8 @@ from app.scheduler import scheduler
 @asynccontextmanager
 async def lifespan(app):
     log_sistema_iniciado(version="3.0.0", entorno=settings.ENVIRONMENT)
+    EventBus.subscribe("movimiento.creado", encolar_evento_webhook)
+    EventBus.subscribe("movimiento.rechazado", encolar_evento_webhook)
     scheduler.start()
     yield
     scheduler.shutdown()

@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class Organizacion(Base):
@@ -13,7 +14,7 @@ class Organizacion(Base):
     nombre = Column(String(150), nullable=False)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     activo = Column(Boolean, default=True, nullable=False)
-    configuracion = Column(JSON, default=dict, nullable=False)
+    configuracion = Column(JSONDocument, default=dict, nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relaciones

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.audit import log_action
 from app.core.modules.registry import ModuleRegistry, MODULOS_CATALOGO
 from app.database import get_db
 from app.schemas.v2.modulo import ModuloEstadoUpdate, ModuloItemRead
@@ -41,11 +42,15 @@ async def actualizar_estado_modulo(
     db: AsyncSession = Depends(get_db),
 ):
     """Activa o desactiva una capacidad/módulo para la organización autenticada."""
-    if not tenant.tiene_permiso("rbac:manage") and tenant.rol_codigo not in ("super_admin", "admin_sede"):
+    if not tenant.tiene_permiso("rbac:manage"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente para administrar módulos")
 
     if id_modulo not in MODULOS_CATALOGO:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Módulo no encontrado en el catálogo")
+
+    await log_action(db, tenant.usuario.id, "CONFIGURAR_MODULO_V2", "v2_organizacion_modulo",
+                     id_modulo, {"id_organizacion": tenant.id_organizacion,
+                                 "habilitado": payload.habilitado})
 
     mod_org = await ModuleRegistry.set_module_status(
         db=db,

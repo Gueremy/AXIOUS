@@ -14,6 +14,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class MovimientoV2(Base):
@@ -34,7 +35,7 @@ class MovimientoV2(Base):
     unidad_medida = Column(String(20), nullable=False)
     efecto_stock = Column(String(20), nullable=False)  # 'entrada', 'salida', 'traslado', 'sin_efecto'
     uuid_local = Column(String(36), nullable=True)  # Idempotencia de sincronización offline
-    atributos = Column(JSON, default=dict, nullable=False)
+    atributos = Column(JSONDocument, default=dict, nullable=False)
     fecha_hora = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     observaciones = Column(String(300), nullable=True)
 

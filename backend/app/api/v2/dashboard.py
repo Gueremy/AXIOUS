@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.dependencies_v2 import TenantContext, get_current_tenant, require_permission
+from app.core.site_access import allowed_location_ids, scope_alert_query, scope_movement_query
 from app.database import get_db
 from app.models.v2.alerta import AlertaV2
 from app.models.v2.item import Item
@@ -21,7 +22,8 @@ from app.schemas.v2.dashboard import (
 )
 from app.services.v2.export_service import ExportServiceV2
 
-router = APIRouter(prefix="/dashboard", tags=["V2 - Dashboard y Reportes"])
+router = APIRouter(prefix="/dashboard", tags=["V2 - Dashboard y Reportes"],
+                   dependencies=[Depends(require_permission("dashboard:read"))])
 
 
 # ─── Indicadores KPIs de Supervisor ──────────────────────────────────────────
@@ -48,6 +50,8 @@ async def obtener_kpis_supervisor(
         func.count(Ubicacion.id).label("total_ubis"),
         func.count(Ubicacion.id).filter(Ubicacion.ocupacion_actual == 0).label("ubis_libres"),
     ).where(Ubicacion.id_organizacion == org_id, Ubicacion.activo == True)
+    if tenant.sitios_permitidos is not None:
+        stmt_ubis = stmt_ubis.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
     res_ubis = (await db.execute(stmt_ubis)).one()
 
     cap_instalada = Decimal(str(res_ubis.capacidad_instalada))
@@ -61,6 +65,8 @@ async def obtener_kpis_supervisor(
     stmt_stock = select(func.coalesce(func.sum(SaldoStock.cantidad), 0)).where(
         SaldoStock.id_organizacion == org_id
     )
+    if tenant.sitios_permitidos is not None:
+        stmt_stock = stmt_stock.where(SaldoStock.id_ubicacion.in_(allowed_location_ids(tenant)))
     stock_total = Decimal(str((await db.execute(stmt_stock)).scalar_one()))
 
     # 3. Cantidad de inconsistencias no resueltas
@@ -68,6 +74,8 @@ async def obtener_kpis_supervisor(
         Inconsistencia.id_organizacion == org_id,
         Inconsistencia.resuelto == False,
     )
+    if tenant.sitios_permitidos is not None:
+        stmt_inc = stmt_inc.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
     cant_inconsistencias = (await db.execute(stmt_inc)).scalar_one()
 
     # 4. Total ítems y alertas activas
@@ -78,6 +86,7 @@ async def obtener_kpis_supervisor(
         AlertaV2.id_organizacion == org_id,
         AlertaV2.estado == "activa",
     )
+    stmt_alertas = scope_alert_query(stmt_alertas, tenant, AlertaV2)
     cant_alertas = (await db.execute(stmt_alertas)).scalar_one()
 
     return DashboardKPIs(
@@ -103,6 +112,8 @@ async def listar_ocupacion_ubicaciones(
         .where(Ubicacion.id_organizacion == tenant.id_organizacion, Ubicacion.activo == True)
         .order_by(Ubicacion.codigo.asc())
     )
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
     ubis = (await db.execute(stmt)).scalars().all()
     resultado = []
     for u in ubis:
@@ -135,14 +146,17 @@ async def consultar_inconsistencias_recientes(
         select(Inconsistencia)
         .where(Inconsistencia.id_organizacion == tenant.id_organizacion)
         .order_by(Inconsistencia.fecha_deteccion.desc())
-        .limit(limit)
     )
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
+    stmt = stmt.limit(limit)
     res = await db.execute(stmt)
     items = []
     for inc in res.scalars().all():
         items.append(
             InconsistenciaDashboardItem(
                 id=inc.id,
+                id_ubicacion=inc.id_ubicacion,
                 id_job=inc.id_importacion_job,
                 fila_origen=inc.fila_origen,
                 tipo_inconsistencia=inc.tipo_inconsistencia,
@@ -159,16 +173,16 @@ async def consultar_inconsistencias_recientes(
 
 # ─── Servicios Reutilizables de Exportación (CSV, Excel, PDF) ─────────────────
 
-async def _obtener_datos_movimientos_export(db: AsyncSession, org_id: str) -> tuple[List[str], List[List[str]]]:
+async def _obtener_datos_movimientos_export(db: AsyncSession, tenant: TenantContext) -> tuple[List[str], List[List[str]]]:
     cabeceras = ["ID Movimiento", "Fecha y Hora", "Tipo", "Efecto", "Ítem", "Lote", "Origen", "Destino", "Cantidad", "Unidad"]
     stmt = (
         select(MovimientoV2, Item.codigo, Lote.numero_lote)
         .join(Item, MovimientoV2.id_item == Item.id)
         .outerjoin(Lote, MovimientoV2.id_lote == Lote.id)
-        .where(MovimientoV2.id_organizacion == org_id)
+        .where(MovimientoV2.id_organizacion == tenant.id_organizacion)
         .order_by(MovimientoV2.fecha_hora.desc())
-        .limit(1000)
     )
+    stmt = scope_movement_query(stmt, tenant, MovimientoV2).limit(1000)
     res = await db.execute(stmt)
     filas = []
     for mov, cod_item, num_lote in res.all():
@@ -193,7 +207,7 @@ async def exportar_movimientos_csv(
     db: AsyncSession = Depends(get_db),
 ):
     """Exporta el historial de movimientos de la organización en formato CSV."""
-    cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant.id_organizacion)
+    cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant)
     csv_bytes = ExportServiceV2.exportar_csv(cabeceras, filas)
     return Response(
         content=csv_bytes,
@@ -208,7 +222,7 @@ async def exportar_movimientos_excel(
     db: AsyncSession = Depends(get_db),
 ):
     """Exporta el historial de movimientos de la organización en archivo Excel (.xlsx)."""
-    cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant.id_organizacion)
+    cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant)
     excel_bytes = ExportServiceV2.exportar_excel("Movimientos", cabeceras, filas)
     return Response(
         content=excel_bytes,
@@ -223,7 +237,7 @@ async def exportar_movimientos_pdf(
     db: AsyncSession = Depends(get_db),
 ):
     """Exporta reporte formal en PDF de movimientos (Ley 19.628: sin datos personales ni RUT)."""
-    cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant.id_organizacion)
+    cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant)
     pdf_bytes = ExportServiceV2.exportar_pdf(
         titulo="Reporte Oficial de Movimientos de Inventario",
         subtitulo=f"Organización ID: {tenant.id_organizacion} — Generado: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC",

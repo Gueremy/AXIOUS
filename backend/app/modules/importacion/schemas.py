@@ -35,6 +35,7 @@ class MappingProfileRead(BaseModel):
 
 class InconsistenciaRead(BaseModel):
     id: str
+    id_ubicacion: Optional[str] = None
     id_importacion_job: str
     fila_origen: int
     tipo_inconsistencia: str

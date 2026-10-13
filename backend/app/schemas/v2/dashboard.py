@@ -29,6 +29,7 @@ class UbicacionOcupacionItem(BaseModel):
 
 class InconsistenciaDashboardItem(BaseModel):
     id: str
+    id_ubicacion: Optional[str] = None
     id_job: str
     fila_origen: int
     tipo_inconsistencia: str

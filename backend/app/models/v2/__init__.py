@@ -13,6 +13,8 @@ from app.models.v2.movimiento import MovimientoV2
 from app.models.v2.regla_ubicacion import ReglaUbicacion
 from app.models.v2.alerta import ReglaAlertaV2, AlertaV2
 from app.models.v2.modulo import ModuloOrganizacion
+from app.models.v2.webhook import WebhookDestino, WebhookEntrega
+from app.models.v2.evento_entrante import EventoEntranteRegistrado
 
 __all__ = [
     "Organizacion",
@@ -34,4 +36,6 @@ __all__ = [
     "ReglaAlertaV2",
     "AlertaV2",
     "ModuloOrganizacion",
+    "WebhookDestino", "WebhookEntrega",
+    "EventoEntranteRegistrado",
 ]

@@ -97,6 +97,14 @@ class MovimientoService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El tipo de movimiento exige ubicación de origen")
         if tipo.requiere_destino and not id_ubicacion_destino:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El tipo de movimiento exige ubicación de destino")
+        if tipo.efecto_stock in ("salida", "traslado") and not id_ubicacion_origen:
+            raise HTTPException(status_code=400, detail="El efecto de stock exige ubicación de origen")
+        if tipo.efecto_stock in ("entrada", "traslado") and not id_ubicacion_destino:
+            raise HTTPException(status_code=400, detail="El efecto de stock exige ubicación de destino")
+        if tipo.efecto_stock == "traslado" and id_ubicacion_origen == id_ubicacion_destino:
+            raise HTTPException(status_code=400, detail="El traslado requiere ubicaciones distintas")
+        if tenant.sitios_permitidos is not None and not (id_ubicacion_origen or id_ubicacion_destino):
+            raise HTTPException(status_code=400, detail="Se requiere una ubicación dentro de un sitio asignado")
 
         if id_ubicacion_origen:
             await require_location_access(db, tenant, id_ubicacion_origen)
@@ -149,15 +157,18 @@ class MovimientoService:
         await db.flush()
 
         # Si el tipo no requiere aprobación, se aprueba y ejecuta inmediatamente
+        movimiento = None
         if not tipo.requiere_aprobacion:
             solicitud.estado = "aprobada"
             solicitud.id_usuario_aprobador = tenant.usuario.id
             solicitud.fecha_resolucion = func.now()
-            await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
+            movimiento = await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
 
         if auto_commit:
             await db.commit()
             await db.refresh(solicitud)
+            if movimiento is not None:
+                await MovimientoService.publicar_movimiento_confirmado(db, tenant, movimiento)
         else:
             await db.flush()
         return solicitud
@@ -199,6 +210,7 @@ class MovimientoService:
 
         await db.commit()
         await db.refresh(movimiento)
+        await MovimientoService.publicar_movimiento_confirmado(db, tenant, movimiento)
         return movimiento
 
     @staticmethod
@@ -376,23 +388,29 @@ class MovimientoService:
         )
         db.add(auditoria)
 
-        await EventBus.publish(
-            DomainEvent(
-                name="movimiento.creado",
-                id_organizacion=tenant.id_organizacion,
-                payload={
-                    "id_movimiento": movimiento.id,
-                    "id_solicitud": solicitud.id,
-                    "tipo": tipo.codigo,
-                    "efecto": efecto,
-                    "id_item": solicitud.id_item,
-                    "id_lote": solicitud.id_lote,
-                    "id_ubicacion_destino": solicitud.id_ubicacion_destino,
-                    "id_ubicacion_origen": solicitud.id_ubicacion_origen,
-                    "cantidad": float(solicitud.cantidad),
-                    "atributos": solicitud.atributos or {},
-                },
-            )
-        )
-
         return movimiento
+
+    @staticmethod
+    async def publicar_movimiento_confirmado(
+        db: AsyncSession, tenant: TenantContext, movimiento: MovimientoV2,
+    ) -> None:
+        """Emite efectos externos sólo después de confirmar el movimiento en BD."""
+        tipo = (await db.execute(select(TipoMovimiento).where(
+            TipoMovimiento.id == movimiento.id_tipo_movimiento,
+        ))).scalar_one()
+        await EventBus.publish(DomainEvent(
+            name="movimiento.creado",
+            id_organizacion=tenant.id_organizacion,
+            payload={
+                "id_movimiento": movimiento.id,
+                "id_solicitud": movimiento.id_solicitud,
+                "tipo": tipo.codigo,
+                "efecto": movimiento.efecto_stock,
+                "id_item": movimiento.id_item,
+                "id_lote": movimiento.id_lote,
+                "id_ubicacion_destino": movimiento.id_ubicacion_destino,
+                "id_ubicacion_origen": movimiento.id_ubicacion_origen,
+                "cantidad": float(movimiento.cantidad),
+                "atributos": movimiento.atributos or {},
+            },
+        ))

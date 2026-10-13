@@ -13,6 +13,7 @@ from app.models.v2.item import Item
 from app.models.v2.lote import Lote
 from app.models.v2.saldo_stock import SaldoStock
 from app.models.v2.ubicacion import Ubicacion
+from app.models.v2.zona import Zona
 from app.modules.picking.schemas import PickingPlanResponse, PickingSugerenciaItem
 
 
@@ -25,6 +26,7 @@ class PickingService:
         id_item: str,
         cantidad_solicitada: Decimal,
         estrategia: str = "fefo",
+        sitios_permitidos: set[str] | None = None,
     ) -> PickingPlanResponse:
         """
         Calcula el plan de picking óptimo según la estrategia solicitada:
@@ -66,6 +68,13 @@ class PickingService:
                 Ubicacion.activo == True,
             )
         )
+        if sitios_permitidos is not None:
+            stmt = stmt.where(Ubicacion.id_zona.in_(
+                select(Zona.id).where(
+                    Zona.id_organizacion == id_organizacion,
+                    Zona.id_sitio.in_(sitios_permitidos),
+                )
+            ))
 
         # Aplicar orden según estrategia
         if estrategia == "fefo":

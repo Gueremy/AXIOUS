@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.dependencies import get_current_user, require_role
+from app.core.dependencies import get_current_user, require_legacy_user, require_role
 from app.core.limiter import limiter
 from app.core.logger import (
     log_inicio_sesion,
@@ -252,6 +252,7 @@ async def register(
     body: UsuarioCreate,
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(require_role(["super_admin"])),
+    __: Usuario = Depends(require_legacy_user),
 ):
     """
     Crea un nuevo usuario. Solo accesible para el rol super_admin.

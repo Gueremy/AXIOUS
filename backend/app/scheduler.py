@@ -22,6 +22,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.v2.organizacion import Organizacion
 from app.services.alertas import evaluar_alertas_batch
 from app.services.v2.alerta_service import AlertaServiceV2
+from app.integraciones.webhooks import despachar_webhooks_pendientes
 from app.core.logger import log_job_scheduler, log_job_scheduler_error
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,14 @@ scheduler.add_job(
     CronTrigger(hour=3),
     id="cleanup_tokens",
     name="Limpieza refresh tokens expirados",
+    replace_existing=True,
+)
+
+scheduler.add_job(
+    despachar_webhooks_pendientes,
+    IntervalTrigger(minutes=1),
+    id="webhook_dispatch",
+    name="Entregas webhook pendientes",
     replace_existing=True,
 )
 

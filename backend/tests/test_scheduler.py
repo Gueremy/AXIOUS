@@ -17,9 +17,10 @@ from app.scheduler import scheduler
 
 
 def test_scheduler_tiene_jobs():
-    """El scheduler tiene exactamente 3 jobs registrados."""
+    """El scheduler conserva los jobs legacy y despacha webhooks pendientes."""
     jobs = scheduler.get_jobs()
-    assert len(jobs) == 3
+    assert len(jobs) == 4
+    assert scheduler.get_job("webhook_dispatch") is not None
 
 
 def test_job_nightly_id():

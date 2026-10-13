@@ -12,6 +12,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class ModuloOrganizacion(Base):
@@ -29,7 +30,7 @@ class ModuloOrganizacion(Base):
     id_organizacion = Column(String(36), ForeignKey("v2_organizacion.id", ondelete="CASCADE"), nullable=False, index=True)
     id_modulo = Column(String(50), nullable=False, index=True)  # 'offline_sync', 'importacion', 'pack_salmonero', 'fefo'
     habilitado = Column(Boolean, nullable=False, default=True)
-    configuracion = Column(JSON, nullable=False, default=dict)
+    configuracion = Column(JSONDocument, nullable=False, default=dict)
     fecha_activacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     organizacion = relationship("Organizacion", lazy="raise")

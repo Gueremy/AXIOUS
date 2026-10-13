@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class Zona(Base):
@@ -16,8 +17,8 @@ class Zona(Base):
     codigo = Column(String(50), nullable=False)
     nombre = Column(String(150), nullable=False)
     tipo = Column(String(50), nullable=False)  # e.g., 'galpon', 'sector', 'pasillo', 'patio'
-    layout = Column(JSON, default=dict, nullable=False)  # coordenadas 2D/3D, dimensiones
-    atributos = Column(JSON, default=dict, nullable=False)
+    layout = Column(JSONDocument, default=dict, nullable=False)  # coordenadas 2D/3D, dimensiones
+    atributos = Column(JSONDocument, default=dict, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

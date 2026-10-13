@@ -13,6 +13,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class SolicitudMovimiento(Base):
@@ -29,11 +30,11 @@ class SolicitudMovimiento(Base):
     id_usuario_aprobador = Column(String(36), ForeignKey("usuario.id", ondelete="RESTRICT"), nullable=True, index=True)
     cantidad = Column(Numeric(12, 4), nullable=False)
     unidad_medida = Column(String(20), nullable=False)
-    estado = Column(String(20), default="pendiente", nullable=False)  # 'pendiente', 'aprobada', 'rechazada', 'cancelada'
+    estado = Column(String(20), default="pendiente", nullable=False, index=True)  # 'pendiente', 'aprobada', 'rechazada', 'cancelada'
     motivo_rechazo = Column(String(300), nullable=True)
     observaciones = Column(String(300), nullable=True)
     uuid_local = Column(String(36), nullable=True)  # Idempotencia de dispositivos cliente
-    atributos = Column(JSON, default=dict, nullable=False)
+    atributos = Column(JSONDocument, default=dict, nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fecha_resolucion = Column(DateTime(timezone=True), nullable=True)
 

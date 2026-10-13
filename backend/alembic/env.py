@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import Base
 from app.models import *
+from app.modules.importacion.models import ImportacionJob, Inconsistencia, MappingProfile
 from app.core.config import settings
 
 from logging.config import fileConfig
@@ -29,6 +30,16 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
+
+def include_object(obj, name, type_, reflected, compare_to):
+    # The v1 migrations own several hand-written PostgreSQL indexes absent from
+    # ORM metadata. Keep them; autogenerate must not suggest dropping them.
+    if type_ == "index" and reflected and compare_to is None and obj.table.name in {
+        "alerta", "container", "movimiento",
+    }:
+        return False
+    return True
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -53,6 +64,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -74,7 +86,8 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.dependencies_v2 import TenantContext, get_current_tenant, require_permission
+from app.core.site_access import allowed_location_ids, scope_movement_query
 from app.database import get_db
 from app.models.usuario import Usuario
 from app.models.v2.item import Item
@@ -32,7 +33,8 @@ from app.schemas.v2.bi import (
     BIStockFact,
 )
 
-router = APIRouter(prefix="/bi", tags=["V2 - Business Intelligence (Read-Only)"])
+router = APIRouter(prefix="/bi", tags=["V2 - Business Intelligence (Read-Only)"],
+                   dependencies=[Depends(require_permission("dashboard:read"))])
 
 
 # ─── Dimensiones ─────────────────────────────────────────────────────────────
@@ -59,6 +61,8 @@ async def obtener_dimension_sitios(
         .group_by(Sitio.id, Sitio.codigo, Sitio.nombre, Sitio.tipo)
         .order_by(Sitio.codigo.asc())
     )
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Sitio.id.in_(tenant.sitios_permitidos))
     res = await db.execute(stmt)
     items = []
     for s_id, s_cod, s_nom, s_tip, tot_z, tot_u, cap_tot in res.all():
@@ -128,6 +132,8 @@ async def obtener_hechos_stock(
         .where(SaldoStock.id_organizacion == tenant.id_organizacion)
         .order_by(Ubicacion.codigo.asc())
     )
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(SaldoStock.id_ubicacion.in_(allowed_location_ids(tenant)))
     res = await db.execute(stmt)
     facts = []
     for saldo, u_cod, cap_max, ocup_act, sit_id, sit_cod, it_cod, num_lot in res.all():
@@ -179,6 +185,7 @@ async def obtener_hechos_movimientos(
         .join(Usuario, MovimientoV2.id_usuario == Usuario.id)
         .where(MovimientoV2.id_organizacion == tenant.id_organizacion)
     )
+    stmt = scope_movement_query(stmt, tenant, MovimientoV2)
     if fecha_desde:
         stmt = stmt.where(MovimientoV2.fecha_hora >= fecha_desde)
     if fecha_hasta:
@@ -218,12 +225,15 @@ async def obtener_hechos_inconsistencias(
         select(Inconsistencia)
         .where(Inconsistencia.id_organizacion == tenant.id_organizacion)
         .order_by(Inconsistencia.fecha_deteccion.asc())
-        .limit(5000)
     )
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
+    stmt = stmt.limit(5000)
     res = await db.execute(stmt)
     return [
         BIInconsistenciaFact(
             id_inconsistencia=inc.id,
+            id_ubicacion=inc.id_ubicacion,
             fecha_deteccion=inc.fecha_deteccion,
             tipo_inconsistencia=inc.tipo_inconsistencia,
             codigo_ubicacion=inc.codigo_ubicacion,

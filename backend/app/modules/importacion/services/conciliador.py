@@ -11,12 +11,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
+from app.core.site_access import allowed_location_ids
 from app.models.log_auditoria import LogAuditoria
 from app.models.v2.item import Item
 from app.models.v2.lote import Lote
 from app.models.v2.regla_ubicacion import ReglaUbicacion
 from app.models.v2.saldo_stock import SaldoStock
+from app.models.v2.sitio import Sitio
 from app.models.v2.ubicacion import Ubicacion
+from app.models.v2.zona import Zona
 from app.modules.importacion.models import ImportacionJob, Inconsistencia
 
 
@@ -48,11 +51,17 @@ class ConciliadorService:
         await db.flush()
 
         # 1. Cargar catálogo de ubicaciones, ítems y saldos actuales de la organización
-        stmt_ubis = select(Ubicacion).where(
+        stmt_ubis = select(Ubicacion, Sitio.codigo, Zona.codigo).join(
+            Zona, Ubicacion.id_zona == Zona.id,
+        ).join(Sitio, Zona.id_sitio == Sitio.id).where(
             Ubicacion.id_organizacion == tenant.id_organizacion,
             Ubicacion.activo == True,
         )
-        ubis = {u.codigo: u for u in (await db.execute(stmt_ubis)).scalars().all()}
+        if tenant.sitios_permitidos is not None:
+            stmt_ubis = stmt_ubis.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
+        ubis: Dict[str, list] = {}
+        for ubi, sitio_codigo, zona_codigo in (await db.execute(stmt_ubis)).all():
+            ubis.setdefault(ubi.codigo, []).append((ubi, sitio_codigo, zona_codigo))
 
         stmt_items = select(Item).where(
             Item.id_organizacion == tenant.id_organizacion,
@@ -90,6 +99,8 @@ class ConciliadorService:
         for item_norm in filas_normalizadas:
             fila_num = item_norm["fila"]
             cod_ubi = item_norm["codigo_ubicacion"]
+            cod_sitio = item_norm.get("codigo_sitio")
+            cod_zona = item_norm.get("codigo_zona")
             cod_item = item_norm["codigo_item"]
             num_lote = item_norm["numero_lote"]
             cant = item_norm["cantidad"]
@@ -114,8 +125,10 @@ class ConciliadorService:
                 continue
 
             # Validación: Ubicación inexistente
-            ubi = ubis.get(cod_ubi)
-            if not ubi:
+            candidates = [(ubi, site_code, zone_code) for ubi, site_code, zone_code in ubis.get(cod_ubi, [])
+                          if (not cod_sitio or site_code == cod_sitio)
+                          and (not cod_zona or zone_code == cod_zona)]
+            if not candidates:
                 inconsistencias.append(
                     Inconsistencia(
                         id_organizacion=tenant.id_organizacion,
@@ -131,6 +144,16 @@ class ConciliadorService:
                     )
                 )
                 continue
+            if len(candidates) > 1:
+                inconsistencias.append(Inconsistencia(
+                    id_organizacion=tenant.id_organizacion, id_importacion_job=job.id,
+                    fila_origen=fila_num, tipo_inconsistencia="ubicacion_ambigua",
+                    motivo=f"La ubicación '{cod_ubi}' es ambigua; indique codigo_sitio y codigo_zona",
+                    codigo_ubicacion=cod_ubi, codigo_item=cod_item, numero_lote=num_lote,
+                    cantidad_externa=cant, datos_crudos=raw,
+                ))
+                continue
+            ubi = candidates[0][0]
 
             # Validación: Ítem inexistente
             item_obj = items.get(cod_item)
@@ -141,6 +164,7 @@ class ConciliadorService:
                         id_importacion_job=job.id,
                         fila_origen=fila_num,
                         tipo_inconsistencia="item_inexistente",
+                        id_ubicacion=ubi.id,
                         motivo=f"El ítem '{cod_item}' no existe en el catálogo de la organización",
                         codigo_ubicacion=cod_ubi,
                         codigo_item=cod_item,
@@ -161,6 +185,7 @@ class ConciliadorService:
                             id_importacion_job=job.id,
                             fila_origen=fila_num,
                             tipo_inconsistencia="sobrecapacidad",
+                            id_ubicacion=ubi.id,
                             motivo=(
                                 f"La cantidad externa ({cant}) agregada a la ocupación actual "
                                 f"({ubi.ocupacion_actual}) excede la capacidad máxima ({ubi.capacidad_maxima})"
@@ -183,6 +208,7 @@ class ConciliadorService:
                             id_importacion_job=job.id,
                             fila_origen=fila_num,
                             tipo_inconsistencia="mezcla_lotes_no_permitida",
+                            id_ubicacion=ubi.id,
                             motivo=(
                                 f"La ubicación '{cod_ubi}' prohíbe mezclar lotes y ya contiene "
                                 f"el lote '{list(lotes_existentes)[0]}', no compatible con '{num_lote}'"
@@ -207,6 +233,7 @@ class ConciliadorService:
                                 id_importacion_job=job.id,
                                 fila_origen=fila_num,
                                 tipo_inconsistencia="item_incompatible",
+                                id_ubicacion=ubi.id,
                                 motivo=(
                                     f"El ítem '{item_obj.codigo}' pertenece a la categoría '{item_obj.categoria}', "
                                     f"no permitida en '{cod_ubi}' (permitidas: {categorias_permitidas})"

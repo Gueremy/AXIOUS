@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Inventario 3D Salmonera \u2014 Skretting",
-    "description": "Backend del sistema de gesti\u00f3n de inventario para Skretting. SERNAPESCA compliance \u00b7 Multi-sede \u00b7 5 roles.",
+    "title": "Inventario 3D Salmonera — Skretting",
+    "description": "Backend del sistema de gestión de inventario para Skretting. SERNAPESCA compliance · Multi-sede · 5 roles.",
     "version": "3.0.0"
   },
   "paths": {
@@ -11,8 +11,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Iniciar sesi\u00f3n",
-        "description": "Autentica con email + password (v\u00eda form-data est\u00e1ndar de OAuth2).\nEl campo 'username' del formulario corresponde al email.\nDevuelve access_token (60 min) y refresh_token (7 d\u00edas, guardado en BD).\n\nRate limit: 5 intentos por IP cada 5 minutos.",
+        "summary": "Iniciar sesión",
+        "description": "Autentica con email + password (vía form-data estándar de OAuth2).\nEl campo 'username' del formulario corresponde al email.\nDevuelve access_token (60 min) y refresh_token (7 días, guardado en BD).\n\nRate limit: 5 intentos por IP cada 5 minutos.",
         "operationId": "login_auth_login_post",
         "requestBody": {
           "content": {
@@ -54,7 +54,7 @@
           "Auth"
         ],
         "summary": "Refrescar token",
-        "description": "Recibe un refresh_token v\u00e1lido y no revocado.\nDevuelve un nuevo par de tokens y revoca el anterior (rotaci\u00f3n).",
+        "description": "Recibe un refresh_token válido y no revocado.\nDevuelve un nuevo par de tokens y revoca el anterior (rotación).",
         "operationId": "refresh_auth_refresh_post",
         "requestBody": {
           "content": {
@@ -122,8 +122,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Cerrar sesi\u00f3n",
-        "description": "Revoca el refresh token en BD.\nEl access_token sigue v\u00e1lido hasta su expiraci\u00f3n (60 min) \u2014 comportamiento est\u00e1ndar JWT.",
+        "summary": "Cerrar sesión",
+        "description": "Revoca el refresh token en BD.\nEl access_token sigue válido hasta su expiración (60 min) — comportamiento estándar JWT.",
         "operationId": "logout_auth_logout_post",
         "requestBody": {
           "content": {
@@ -163,7 +163,7 @@
           "Auth"
         ],
         "summary": "Registrar usuario (solo Super Admin)",
-        "description": "Crea un nuevo usuario. Solo accesible para el rol super_admin.\nLa contrase\u00f1a se hashea con bcrypt cost=12 antes de guardarla.",
+        "description": "Crea un nuevo usuario. Solo accesible para el rol super_admin.\nLa contraseña se hashea con bcrypt cost=12 antes de guardarla.",
         "operationId": "register_auth_register_post",
         "requestBody": {
           "content": {
@@ -209,8 +209,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Solicitar recuperaci\u00f3n de clave",
-        "description": "Simula el env\u00edo de un correo electr\u00f3nico con un token de recuperaci\u00f3n.\nSiempre devuelve 200 OK para evitar la enumeraci\u00f3n de emails.",
+        "summary": "Solicitar recuperación de clave",
+        "description": "Simula el envío de un correo electrónico con un token de recuperación.\nSiempre devuelve 200 OK para evitar la enumeración de emails.",
         "operationId": "forgot_password_auth_forgot_password_post",
         "requestBody": {
           "content": {
@@ -249,8 +249,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Restablecer contrase\u00f1a con token",
-        "description": "Recibe el token de recuperaci\u00f3n y una nueva contrase\u00f1a.\nRestablece la cuenta y sus bloqueos anteriores.",
+        "summary": "Restablecer contraseña con token",
+        "description": "Recibe el token de recuperación y una nueva contraseña.\nRestablece la cuenta y sus bloqueos anteriores.",
         "operationId": "reset_password_auth_reset_password_post",
         "requestBody": {
           "content": {
@@ -917,7 +917,7 @@
           "Containers"
         ],
         "summary": "Update Container Estado",
-        "description": "Modifica \u00fanicamente el estado del contenedor (Auditable)",
+        "description": "Modifica únicamente el estado del contenedor (Auditable)",
         "operationId": "update_container_estado_containers__id__estado_patch",
         "security": [
           {
@@ -974,7 +974,7 @@
           "Containers"
         ],
         "summary": "Get Container Qr",
-        "description": "Genera un archivo QR en base64 para uso en interfaces 3D / Etiquetas f\u00edsicas",
+        "description": "Genera un archivo QR en base64 para uso en interfaces 3D / Etiquetas físicas",
         "operationId": "get_container_qr_containers__id__qr_get",
         "security": [
           {
@@ -1022,8 +1022,13 @@
           "Containers"
         ],
         "summary": "Get Info Publica",
-        "description": "Endpoint p\u00fablico para esc\u00e1neres web que no requiere JWT.",
+        "description": "Endpoint público para escáneres web que no requiere JWT.",
         "operationId": "get_info_publica_containers__id__info_publica_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
@@ -1417,7 +1422,7 @@
           "Usuarios"
         ],
         "summary": "Asignar Galpones",
-        "description": "Asigna galpones espec\u00edficos a un Jefe de Bodega u Operario",
+        "description": "Asigna galpones específicos a un Jefe de Bodega u Operario",
         "operationId": "asignar_galpones_usuarios__id__asignar_galpones_post",
         "security": [
           {
@@ -1759,7 +1764,7 @@
           "Movimientos"
         ],
         "summary": "Fefo",
-        "description": "AXI-11 \u2014 Sugiere containers ordenados por fecha_vencimiento ASC (FEFO).",
+        "description": "AXI-11 — Sugiere containers ordenados por fecha_vencimiento ASC (FEFO).",
         "operationId": "fefo_movimientos_fefo_get",
         "security": [
           {
@@ -1807,7 +1812,7 @@
           "Movimientos"
         ],
         "summary": "Trazabilidad",
-        "description": "AXI-12 \u2014 Historial completo de un lote (usa indice GIN para < 2s).",
+        "description": "AXI-12 — Historial completo de un lote (usa indice GIN para < 2s).",
         "operationId": "trazabilidad_movimientos_trazabilidad_get",
         "security": [
           {
@@ -1855,7 +1860,7 @@
           "Movimientos"
         ],
         "summary": "Ruta Picking",
-        "description": "AXI-21 \u2014 Ruta optima de picking (Nearest Neighbor, Manhattan).",
+        "description": "AXI-21 — Ruta optima de picking (Nearest Neighbor, Manhattan).",
         "operationId": "ruta_picking_movimientos_ruta_picking_get",
         "security": [
           {
@@ -1905,7 +1910,7 @@
           "Movimientos"
         ],
         "summary": "Sync Movimientos",
-        "description": "AXI-13 \u2014 Sincronizacion offline real. Last-Write-Wins + validacion capacidad.",
+        "description": "AXI-13 — Sincronizacion offline real. Last-Write-Wins + validacion capacidad.",
         "operationId": "sync_movimientos_movimientos_sync_post",
         "requestBody": {
           "content": {
@@ -1965,7 +1970,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/AlertaRead"
+                    "$ref": "#/components/schemas/app__schemas__alerta__AlertaRead"
                   },
                   "type": "array",
                   "title": "Response Get Alertas Activas Alertas Activas Get"
@@ -2095,7 +2100,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AlertaRead"
+                  "$ref": "#/components/schemas/app__schemas__alerta__AlertaRead"
                 }
               }
             }
@@ -2142,7 +2147,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AlertaResolver"
+                "$ref": "#/components/schemas/app__schemas__alerta__AlertaResolver"
               }
             }
           }
@@ -2153,7 +2158,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AlertaRead"
+                  "$ref": "#/components/schemas/app__schemas__alerta__AlertaRead"
                 }
               }
             }
@@ -2234,7 +2239,7 @@
           "Dashboard"
         ],
         "summary": "Get Ocupacion Por Galpon",
-        "description": "Retorna la ocupaci\u00f3n % por galp\u00f3n para un BarChart de Recharts.",
+        "description": "Retorna la ocupación % por galpón para un BarChart de Recharts.",
         "operationId": "get_ocupacion_por_galpon_dashboard_ocupacion_por_galpon_get",
         "security": [
           {
@@ -2295,7 +2300,7 @@
           "Dashboard"
         ],
         "summary": "Get Evolucion",
-        "description": "Retorna la evoluci\u00f3n de movimientos aprobados por d\u00eda para un LineChart de Recharts.",
+        "description": "Retorna la evolución de movimientos aprobados por día para un LineChart de Recharts.",
         "operationId": "get_evolucion_dashboard_evolucion_get",
         "security": [
           {
@@ -2311,11 +2316,11 @@
               "type": "integer",
               "maximum": 90,
               "minimum": 1,
-              "description": "D\u00edas hacia atr\u00e1s (m\u00e1x 90)",
+              "description": "Días hacia atrás (máx 90)",
               "default": 30,
               "title": "Dias"
             },
-            "description": "D\u00edas hacia atr\u00e1s (m\u00e1x 90)"
+            "description": "Días hacia atrás (máx 90)"
           },
           {
             "name": "id_sede",
@@ -2370,7 +2375,7 @@
           "Reportes"
         ],
         "summary": "Exportar Pdf",
-        "description": "Descarga un PDF con movimientos SERNAPESCA del per\u00edodo.",
+        "description": "Descarga un PDF con movimientos SERNAPESCA del período.",
         "operationId": "exportar_pdf_reportes_movimientos_pdf_get",
         "security": [
           {
@@ -2386,11 +2391,11 @@
               "type": "integer",
               "maximum": 365,
               "minimum": 1,
-              "description": "D\u00edas hacia atr\u00e1s",
+              "description": "Días hacia atrás",
               "default": 30,
               "title": "Dias"
             },
-            "description": "D\u00edas hacia atr\u00e1s"
+            "description": "Días hacia atrás"
           },
           {
             "name": "desde",
@@ -2606,7 +2611,7 @@
           "Reportes"
         ],
         "summary": "Exportar Sernapesca",
-        "description": "Descarga Excel con formato oficial SERNAPESCA (sin RUT \u2014 Ley 19.628).",
+        "description": "Descarga Excel con formato oficial SERNAPESCA (sin RUT — Ley 19.628).",
         "operationId": "exportar_sernapesca_reportes_sernapesca_get",
         "security": [
           {
@@ -2705,7 +2710,7 @@
           "V2 - Sitios"
         ],
         "summary": "Listar Sitios",
-        "description": "Lista sitios pertenecientes a la organizaci\u00f3n del usuario con paginaci\u00f3n.",
+        "description": "Lista sitios pertenecientes a la organización del usuario con paginación.",
         "operationId": "listar_sitios_api_v2_sitios__get",
         "security": [
           {
@@ -2801,7 +2806,7 @@
           "V2 - Sitios"
         ],
         "summary": "Crear Sitio",
-        "description": "Crea un nuevo sitio dentro de la organizaci\u00f3n autenticada.",
+        "description": "Crea un nuevo sitio dentro de la organización autenticada.",
         "operationId": "crear_sitio_api_v2_sitios__post",
         "security": [
           {
@@ -2848,7 +2853,7 @@
           "V2 - Sitios"
         ],
         "summary": "Obtener Sitio",
-        "description": "Obtiene el detalle de un sitio espec\u00edfico validando aislamiento de organizaci\u00f3n.",
+        "description": "Obtiene el detalle de un sitio específico validando aislamiento de organización.",
         "operationId": "obtener_sitio_api_v2_sitios__id_sitio__get",
         "security": [
           {
@@ -2952,7 +2957,7 @@
           "V2 - Zonas"
         ],
         "summary": "Listar Zonas",
-        "description": "Lista zonas de la organizaci\u00f3n autenticada con filtros por sitio y jerarqu\u00eda.",
+        "description": "Lista zonas de la organización autenticada con filtros por sitio y jerarquía.",
         "operationId": "listar_zonas_api_v2_zonas__get",
         "security": [
           {
@@ -3066,7 +3071,7 @@
           "V2 - Zonas"
         ],
         "summary": "Crear Zona",
-        "description": "Crea una nueva zona validando pertenencia al sitio y evitando ciclos en la jerarqu\u00eda.",
+        "description": "Crea una nueva zona validando pertenencia al sitio y evitando ciclos en la jerarquía.",
         "operationId": "crear_zona_api_v2_zonas__post",
         "security": [
           {
@@ -3113,7 +3118,7 @@
           "V2 - Zonas"
         ],
         "summary": "Obtener Zona",
-        "description": "Obtiene una zona por ID validando pertenencia a la organizaci\u00f3n.",
+        "description": "Obtiene una zona por ID validando pertenencia a la organización.",
         "operationId": "obtener_zona_api_v2_zonas__id_zona__get",
         "security": [
           {
@@ -3269,7 +3274,7 @@
           "V2 - Ubicaciones"
         ],
         "summary": "Listar Ubicaciones",
-        "description": "Lista ubicaciones f\u00edsicas de almacenamiento pertenecientes a la organizaci\u00f3n.",
+        "description": "Lista ubicaciones físicas de almacenamiento pertenecientes a la organización.",
         "operationId": "listar_ubicaciones_api_v2_ubicaciones__get",
         "security": [
           {
@@ -3383,7 +3388,7 @@
           "V2 - Ubicaciones"
         ],
         "summary": "Crear Ubicacion",
-        "description": "Crea una nueva ubicaci\u00f3n de almacenamiento.",
+        "description": "Crea una nueva ubicación de almacenamiento.",
         "operationId": "crear_ubicacion_api_v2_ubicaciones__post",
         "security": [
           {
@@ -3430,7 +3435,7 @@
           "V2 - Ubicaciones"
         ],
         "summary": "Obtener Ubicacion",
-        "description": "Obtiene una ubicaci\u00f3n por ID validando pertenencia a la organizaci\u00f3n.",
+        "description": "Obtiene una ubicación por ID validando pertenencia a la organización.",
         "operationId": "obtener_ubicacion_api_v2_ubicaciones__id_ubicacion__get",
         "security": [
           {
@@ -3476,7 +3481,7 @@
           "V2 - Ubicaciones"
         ],
         "summary": "Actualizar Ubicacion",
-        "description": "Actualiza atributos, capacidad o estado de una ubicaci\u00f3n.",
+        "description": "Actualiza atributos, capacidad o estado de una ubicación.",
         "operationId": "actualizar_ubicacion_api_v2_ubicaciones__id_ubicacion__patch",
         "security": [
           {
@@ -3534,7 +3539,7 @@
           "V2 - Items"
         ],
         "summary": "Listar Items",
-        "description": "Lista cat\u00e1logo de \u00edtems pertenecientes a la organizaci\u00f3n.",
+        "description": "Lista catálogo de ítems pertenecientes a la organización.",
         "operationId": "listar_items_api_v2_items__get",
         "security": [
           {
@@ -3555,10 +3560,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filtrar por categor\u00eda",
+              "description": "Filtrar por categoría",
               "title": "Categoria"
             },
-            "description": "Filtrar por categor\u00eda"
+            "description": "Filtrar por categoría"
           },
           {
             "name": "activo",
@@ -3630,7 +3635,7 @@
           "V2 - Items"
         ],
         "summary": "Crear Item",
-        "description": "Crea un nuevo \u00edtem en el cat\u00e1logo de la organizaci\u00f3n.",
+        "description": "Crea un nuevo ítem en el catálogo de la organización.",
         "operationId": "crear_item_api_v2_items__post",
         "security": [
           {
@@ -3677,7 +3682,7 @@
           "V2 - Items"
         ],
         "summary": "Obtener Item",
-        "description": "Obtiene un \u00edtem por ID validando pertenencia a la organizaci\u00f3n.",
+        "description": "Obtiene un ítem por ID validando pertenencia a la organización.",
         "operationId": "obtener_item_api_v2_items__id_item__get",
         "security": [
           {
@@ -3723,7 +3728,7 @@
           "V2 - Items"
         ],
         "summary": "Actualizar Item",
-        "description": "Actualiza datos o desactiva un \u00edtem de la organizaci\u00f3n.",
+        "description": "Actualiza datos o desactiva un ítem de la organización.",
         "operationId": "actualizar_item_api_v2_items__id_item__patch",
         "security": [
           {
@@ -3781,7 +3786,7 @@
           "V2 - Lotes"
         ],
         "summary": "Listar Lotes",
-        "description": "Lista lotes de producci\u00f3n/recepci\u00f3n pertenecientes a la organizaci\u00f3n.",
+        "description": "Lista lotes de producción/recepción pertenecientes a la organización.",
         "operationId": "listar_lotes_api_v2_lotes__get",
         "security": [
           {
@@ -3802,10 +3807,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filtrar por \u00edtem",
+              "description": "Filtrar por ítem",
               "title": "Id Item"
             },
-            "description": "Filtrar por \u00edtem"
+            "description": "Filtrar por ítem"
           },
           {
             "name": "estado",
@@ -3877,7 +3882,7 @@
           "V2 - Lotes"
         ],
         "summary": "Crear Lote",
-        "description": "Crea un nuevo lote para un \u00edtem de la organizaci\u00f3n.",
+        "description": "Crea un nuevo lote para un ítem de la organización.",
         "operationId": "crear_lote_api_v2_lotes__post",
         "security": [
           {
@@ -3924,7 +3929,7 @@
           "V2 - Lotes"
         ],
         "summary": "Obtener Lote",
-        "description": "Obtiene un lote por ID validando pertenencia a la organizaci\u00f3n.",
+        "description": "Obtiene un lote por ID validando pertenencia a la organización.",
         "operationId": "obtener_lote_api_v2_lotes__id_lote__get",
         "security": [
           {
@@ -4028,7 +4033,7 @@
           "V2 - Esquemas de Atributos"
         ],
         "summary": "Listar Esquemas",
-        "description": "Lista definiciones de esquemas de atributos din\u00e1micos de la organizaci\u00f3n.",
+        "description": "Lista definiciones de esquemas de atributos dinámicos de la organización.",
         "operationId": "listar_esquemas_api_v2_esquemas__get",
         "security": [
           {
@@ -4087,7 +4092,7 @@
           "V2 - Esquemas de Atributos"
         ],
         "summary": "Crear Esquema",
-        "description": "Registra una nueva versi\u00f3n de esquema JSON Schema para validaci\u00f3n de atributos din\u00e1micos.",
+        "description": "Registra una nueva versión de esquema JSON Schema para validación de atributos dinámicos.",
         "operationId": "crear_esquema_api_v2_esquemas__post",
         "security": [
           {
@@ -4128,13 +4133,3026 @@
         }
       }
     },
+    "/api/v2/movimientos/tipos": {
+      "get": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Listar Tipos Movimiento",
+        "description": "Lista los tipos de movimiento configurados para la organización.",
+        "operationId": "listar_tipos_movimiento_api_v2_movimientos_tipos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TipoMovimientoRead"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Tipos Movimiento Api V2 Movimientos Tipos Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Crear Tipo Movimiento",
+        "description": "Registra un nuevo tipo de movimiento configurable.",
+        "operationId": "crear_tipo_movimiento_api_v2_movimientos_tipos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TipoMovimientoCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipoMovimientoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/movimientos/solicitudes": {
+      "post": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Crear Solicitud Movimiento",
+        "description": "Crea una solicitud de movimiento; si el tipo no requiere aprobación, se confirma de inmediato.",
+        "operationId": "crear_solicitud_movimiento_api_v2_movimientos_solicitudes_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudMovimientoCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolicitudMovimientoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Listar Solicitudes",
+        "description": "Lista solicitudes de movimiento de la organización con paginación.",
+        "operationId": "listar_solicitudes_api_v2_movimientos_solicitudes_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por estado (pendiente, aprobada, rechazada)",
+              "title": "Estado"
+            },
+            "description": "Filtrar por estado (pendiente, aprobada, rechazada)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_SolicitudMovimientoRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/movimientos/solicitudes/{id_solicitud}/aprobar": {
+      "patch": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Aprobar Solicitud",
+        "description": "Aprueba una solicitud pendiente: actualiza existencias atómicamente y emite el movimiento inmutable.",
+        "operationId": "aprobar_solicitud_api_v2_movimientos_solicitudes__id_solicitud__aprobar_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_solicitud",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Solicitud"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovimientoV2Read"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/movimientos/solicitudes/{id_solicitud}/rechazar": {
+      "patch": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Rechazar Solicitud",
+        "description": "Rechaza una solicitud de movimiento registrando el motivo y manteniendo la auditoría.",
+        "operationId": "rechazar_solicitud_api_v2_movimientos_solicitudes__id_solicitud__rechazar_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_solicitud",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Solicitud"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudRechazar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolicitudMovimientoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/movimientos/": {
+      "get": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Listar Movimientos",
+        "description": "Consulta el libro inmutable de movimientos confirmados de la organización.",
+        "operationId": "listar_movimientos_api_v2_movimientos__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "efecto_stock",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por efecto (entrada, salida, traslado)",
+              "title": "Efecto Stock"
+            },
+            "description": "Filtrar por efecto (entrada, salida, traslado)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_MovimientoV2Read_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/movimientos/trazabilidad": {
+      "get": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Consultar Trazabilidad",
+        "description": "Retorna la cadena inmutable de custodia para un lote o ítem específico.",
+        "operationId": "consultar_trazabilidad_api_v2_movimientos_trazabilidad_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_lote",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Consultar historial por lote",
+              "title": "Id Lote"
+            },
+            "description": "Consultar historial por lote"
+          },
+          {
+            "name": "id_item",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Consultar historial por ítem",
+              "title": "Id Item"
+            },
+            "description": "Consultar historial por ítem"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovimientoV2Read"
+                  },
+                  "title": "Response Consultar Trazabilidad Api V2 Movimientos Trazabilidad Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/movimientos/saldos": {
+      "get": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Consultar Saldos",
+        "description": "Consulta los saldos de stock consolidados por ubicación, ítem o lote.",
+        "operationId": "consultar_saldos_api_v2_movimientos_saldos_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_ubicacion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por ubicación",
+              "title": "Id Ubicacion"
+            },
+            "description": "Filtrar por ubicación"
+          },
+          {
+            "name": "id_item",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por ítem",
+              "title": "Id Item"
+            },
+            "description": "Filtrar por ítem"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaldoStockRead"
+                  },
+                  "title": "Response Consultar Saldos Api V2 Movimientos Saldos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/movimientos/sync": {
+      "post": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Sincronizar Movimientos Offline",
+        "description": "Sincroniza un lote de movimientos generados sin conexión en cliente PWA / Dexie.js.\nAplica idempotencia por uuid_local y garantiza aislamiento transaccional por movimiento.",
+        "operationId": "sincronizar_movimientos_offline_api_v2_movimientos_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncBatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/reglas/": {
+      "get": {
+        "tags": [
+          "V2 - Reglas de Ubicación"
+        ],
+        "summary": "Listar Reglas",
+        "description": "Lista las reglas de ubicación activas configuradas para la organización.",
+        "operationId": "listar_reglas_api_v2_reglas__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tipo_regla",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por tipo de regla",
+              "title": "Tipo Regla"
+            },
+            "description": "Filtrar por tipo de regla"
+          },
+          {
+            "name": "id_ubicacion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por ubicación",
+              "title": "Id Ubicacion"
+            },
+            "description": "Filtrar por ubicación"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReglaUbicacionRead"
+                  },
+                  "title": "Response Listar Reglas Api V2 Reglas  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "V2 - Reglas de Ubicación"
+        ],
+        "summary": "Crear Regla",
+        "description": "Registra una nueva regla de almacenamiento en la organización.",
+        "operationId": "crear_regla_api_v2_reglas__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReglaUbicacionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglaUbicacionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/reglas/{id_regla}": {
+      "patch": {
+        "tags": [
+          "V2 - Reglas de Ubicación"
+        ],
+        "summary": "Actualizar Regla",
+        "description": "Actualiza o desactiva una regla existente.",
+        "operationId": "actualizar_regla_api_v2_reglas__id_regla__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_regla",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Regla"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReglaUbicacionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglaUbicacionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/alertas/reglas": {
+      "get": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Listar Reglas Alerta",
+        "description": "Lista las reglas de alertas configuradas para la organización.",
+        "operationId": "listar_reglas_alerta_api_v2_alertas_reglas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReglaAlertaRead"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Reglas Alerta Api V2 Alertas Reglas Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Crear Regla Alerta",
+        "description": "Crea una regla de alerta personalizada para la organización.",
+        "operationId": "crear_regla_alerta_api_v2_alertas_reglas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReglaAlertaCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglaAlertaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/alertas/reglas/{id}": {
+      "patch": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Actualizar Regla Alerta",
+        "description": "Modifica dinámicamente los umbrales o estado de activación de una regla.",
+        "operationId": "actualizar_regla_alerta_api_v2_alertas_reglas__id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReglaAlertaUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglaAlertaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/alertas/activas": {
+      "get": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Listar Alertas Activas",
+        "description": "Retorna las alertas actualmente activas para la organización.",
+        "operationId": "listar_alertas_activas_api_v2_alertas_activas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/app__schemas__v2__alerta__AlertaRead"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Alertas Activas Api V2 Alertas Activas Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/alertas": {
+      "get": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Listar Alertas",
+        "description": "Lista historial de alertas paginado con filtros para la organización.",
+        "operationId": "listar_alertas_api_v2_alertas_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por estado: activa, revisada, resuelta",
+              "title": "Estado"
+            },
+            "description": "Filtrar por estado: activa, revisada, resuelta"
+          },
+          {
+            "name": "severidad",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por severidad: critica, aviso, informativa",
+              "title": "Severidad"
+            },
+            "description": "Filtrar por severidad: critica, aviso, informativa"
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por tipo",
+              "title": "Tipo"
+            },
+            "description": "Filtrar por tipo"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_AlertaRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/alertas/evaluar": {
+      "post": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Disparar Evaluacion Alertas",
+        "description": "Ejecuta la evaluación de todas las reglas habilitadas para la organización.",
+        "operationId": "disparar_evaluacion_alertas_api_v2_alertas_evaluar_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluarAlertasResultado"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/alertas/{id}/revisar": {
+      "patch": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Marcar Alerta Revisada",
+        "description": "Marca una alerta como revisada por el supervisor.",
+        "operationId": "marcar_alerta_revisada_api_v2_alertas__id__revisar_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertaRevisar",
+                "default": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__v2__alerta__AlertaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/alertas/{id}/resolver": {
+      "patch": {
+        "tags": [
+          "V2 - Alertas y Reglas"
+        ],
+        "summary": "Marcar Alerta Resuelta",
+        "description": "Marca una alerta como resuelta.",
+        "operationId": "marcar_alerta_resuelta_api_v2_alertas__id__resolver_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__schemas__v2__alerta__AlertaResolver",
+                "default": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__v2__alerta__AlertaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/importacion/mapeos": {
+      "get": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Listar Perfiles Mapeo",
+        "description": "Lista los perfiles de mapeo de columnas guardados para la organización.",
+        "operationId": "listar_perfiles_mapeo_api_v2_importacion_mapeos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MappingProfileRead"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Perfiles Mapeo Api V2 Importacion Mapeos Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Crear Perfil Mapeo",
+        "description": "Crea y guarda un perfil de mapeo reutilizable para importaciones de ERP/WMS.",
+        "operationId": "crear_perfil_mapeo_api_v2_importacion_mapeos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingProfileCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/importacion/mapeos/{id}": {
+      "patch": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Actualizar Perfil Mapeo",
+        "description": "Actualiza o desactiva un perfil de mapeo.",
+        "operationId": "actualizar_perfil_mapeo_api_v2_importacion_mapeos__id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/importacion/conciliar": {
+      "post": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Conciliar Archivo Externo",
+        "description": "Sube un archivo externo (CSV o Excel), normaliza las columnas según el mapeo y concilia\nlas existencias contra SalmoTrack v2, detectando sobrecapacidad, mezclas prohibidas e inexistencias.",
+        "operationId": "conciliar_archivo_externo_api_v2_importacion_conciliar_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_conciliar_archivo_externo_api_v2_importacion_conciliar_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacionResultado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/importacion/jobs": {
+      "get": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Listar Jobs Importacion",
+        "description": "Lista historial paginado de ejecuciones de importación y conciliación.",
+        "operationId": "listar_jobs_importacion_api_v2_importacion_jobs_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_ImportacionJobRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/importacion/jobs/{id}/inconsistencias": {
+      "get": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Consultar Inconsistencias Job",
+        "description": "Consulta la lista de inconsistencias detectadas en una ejecución específica.",
+        "operationId": "consultar_inconsistencias_job_api_v2_importacion_jobs__id__inconsistencias_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InconsistenciaRead"
+                  },
+                  "title": "Response Consultar Inconsistencias Job Api V2 Importacion Jobs  Id  Inconsistencias Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/dashboard/kpis": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Obtener Kpis Supervisor",
+        "description": "Retorna los 5 indicadores mínimos requeridos para supervisor (Fase 1F):\n1. Capacidad instalada total\n2. Stock total acumulado\n3. Ubicaciones libres\n4. Porcentaje de uso global\n5. Cantidad de inconsistencias detectadas",
+        "operationId": "obtener_kpis_supervisor_api_v2_dashboard_kpis_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardKPIs"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/dashboard/ocupacion": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Listar Ocupacion Ubicaciones",
+        "description": "Retorna el listado de ubicaciones con su porcentaje de ocupación actual.",
+        "operationId": "listar_ocupacion_ubicaciones_api_v2_dashboard_ocupacion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UbicacionOcupacionItem"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Ocupacion Ubicaciones Api V2 Dashboard Ocupacion Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/dashboard/inconsistencias-recientes": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Consultar Inconsistencias Recientes",
+        "description": "Retorna inconsistencias recientes con referencia de ubicación\npara que el supervisor pueda navegar directamente hacia ella.",
+        "operationId": "consultar_inconsistencias_recientes_api_v2_dashboard_inconsistencias_recientes_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InconsistenciaDashboardItem"
+                  },
+                  "title": "Response Consultar Inconsistencias Recientes Api V2 Dashboard Inconsistencias Recientes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/dashboard/exportar/movimientos/csv": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Exportar Movimientos Csv",
+        "description": "Exporta el historial de movimientos de la organización en formato CSV.",
+        "operationId": "exportar_movimientos_csv_api_v2_dashboard_exportar_movimientos_csv_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/dashboard/exportar/movimientos/excel": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Exportar Movimientos Excel",
+        "description": "Exporta el historial de movimientos de la organización en archivo Excel (.xlsx).",
+        "operationId": "exportar_movimientos_excel_api_v2_dashboard_exportar_movimientos_excel_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/dashboard/exportar/movimientos/pdf": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Exportar Movimientos Pdf",
+        "description": "Exporta reporte formal en PDF de movimientos (Ley 19.628: sin datos personales ni RUT).",
+        "operationId": "exportar_movimientos_pdf_api_v2_dashboard_exportar_movimientos_pdf_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/bi/dimensiones/sitios": {
+      "get": {
+        "tags": [
+          "V2 - Business Intelligence (Read-Only)"
+        ],
+        "summary": "Obtener Dimension Sitios",
+        "description": "Retorna dimensión de sitios y resumen estructural para modelado en Power BI / BI.",
+        "operationId": "obtener_dimension_sitios_api_v2_bi_dimensiones_sitios_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BISitioDimension"
+                  },
+                  "type": "array",
+                  "title": "Response Obtener Dimension Sitios Api V2 Bi Dimensiones Sitios Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/bi/dimensiones/items": {
+      "get": {
+        "tags": [
+          "V2 - Business Intelligence (Read-Only)"
+        ],
+        "summary": "Obtener Dimension Items",
+        "description": "Retorna dimensión de catálogo de ítems para cruce analítico.",
+        "operationId": "obtener_dimension_items_api_v2_bi_dimensiones_items_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BIItemDimension"
+                  },
+                  "type": "array",
+                  "title": "Response Obtener Dimension Items Api V2 Bi Dimensiones Items Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/bi/hechos/stock": {
+      "get": {
+        "tags": [
+          "V2 - Business Intelligence (Read-Only)"
+        ],
+        "summary": "Obtener Hechos Stock",
+        "description": "Retorna la tabla de hechos de existencias y saldos consolidados por ubicación.",
+        "operationId": "obtener_hechos_stock_api_v2_bi_hechos_stock_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BIStockFact"
+                  },
+                  "type": "array",
+                  "title": "Response Obtener Hechos Stock Api V2 Bi Hechos Stock Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/bi/hechos/movimientos": {
+      "get": {
+        "tags": [
+          "V2 - Business Intelligence (Read-Only)"
+        ],
+        "summary": "Obtener Hechos Movimientos",
+        "description": "Retorna la tabla de hechos de transacciones de movimientos.\nNUNCA expone el RUT del operario (cumple Ley 19.628); utiliza código de empleado.",
+        "operationId": "obtener_hechos_movimientos_api_v2_bi_hechos_movimientos_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "fecha_desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtro fecha inicio ISO",
+              "title": "Fecha Desde"
+            },
+            "description": "Filtro fecha inicio ISO"
+          },
+          {
+            "name": "fecha_hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtro fecha fin ISO",
+              "title": "Fecha Hasta"
+            },
+            "description": "Filtro fecha fin ISO"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20000,
+              "minimum": 1,
+              "default": 5000,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BIMovimientoFact"
+                  },
+                  "title": "Response Obtener Hechos Movimientos Api V2 Bi Hechos Movimientos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/bi/hechos/inconsistencias": {
+      "get": {
+        "tags": [
+          "V2 - Business Intelligence (Read-Only)"
+        ],
+        "summary": "Obtener Hechos Inconsistencias",
+        "description": "Retorna el historial de inconsistencias de importación para análisis de calidad de inventario.",
+        "operationId": "obtener_hechos_inconsistencias_api_v2_bi_hechos_inconsistencias_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BIInconsistenciaFact"
+                  },
+                  "type": "array",
+                  "title": "Response Obtener Hechos Inconsistencias Api V2 Bi Hechos Inconsistencias Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/modulos": {
+      "get": {
+        "tags": [
+          "V2 - Módulos y Feature Flags"
+        ],
+        "summary": "Listar Modulos",
+        "description": "Retorna el catálogo completo de módulos y su estado de activación para la organización.",
+        "operationId": "listar_modulos_api_v2_modulos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModuloItemRead"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Modulos Api V2 Modulos Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/modulos/{id_modulo}": {
+      "patch": {
+        "tags": [
+          "V2 - Módulos y Feature Flags"
+        ],
+        "summary": "Actualizar Estado Modulo",
+        "description": "Activa o desactiva una capacidad/módulo para la organización autenticada.",
+        "operationId": "actualizar_estado_modulo_api_v2_modulos__id_modulo__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_modulo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Modulo"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuloEstadoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuloItemRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/modulos/salmonero/reporte": {
+      "get": {
+        "tags": [
+          "V2 - Pack Acuícola Salmonero"
+        ],
+        "summary": "Obtener Reporte Sernapesca",
+        "description": "Genera el reporte regulatorio de acuicultura SERNAPESCA.\nSólo está disponible si la organización tiene activo el 'pack_salmonero'.",
+        "operationId": "obtener_reporte_sernapesca_api_v2_modulos_salmonero_reporte_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Obtener Reporte Sernapesca Api V2 Modulos Salmonero Reporte Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/picking/estrategia": {
+      "get": {
+        "tags": [
+          "V2 - Picking (FEFO / FIFO / LIFO)"
+        ],
+        "summary": "Consultar Estrategia",
+        "operationId": "consultar_estrategia_api_v2_picking_estrategia_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "V2 - Picking (FEFO / FIFO / LIFO)"
+        ],
+        "summary": "Configurar Estrategia",
+        "operationId": "configurar_estrategia_api_v2_picking_estrategia_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PickingStrategyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/picking/sugerir": {
+      "get": {
+        "tags": [
+          "V2 - Picking (FEFO / FIFO / LIFO)"
+        ],
+        "summary": "Sugerir Picking",
+        "description": "Calcula la sugerencia de ubicaciones y lotes para picking\nsegún la estrategia configurada (FEFO por vencimiento, FIFO por antigüedad, LIFO).",
+        "operationId": "sugerir_picking_api_v2_picking_sugerir_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_item",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "ID del ítem a extraer",
+              "title": "Id Item"
+            },
+            "description": "ID del ítem a extraer"
+          },
+          {
+            "name": "cantidad",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "description": "Cantidad total requerida",
+              "title": "Cantidad"
+            },
+            "description": "Cantidad total requerida"
+          },
+          {
+            "name": "estrategia",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Estrategia: fefo, fifo, lifo; por defecto la configurada",
+              "title": "Estrategia"
+            },
+            "description": "Estrategia: fefo, fifo, lifo; por defecto la configurada"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickingPlanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/layout/sitios/{id_sitio}": {
+      "get": {
+        "tags": [
+          "V2 - Editor de Layout 2D/3D"
+        ],
+        "summary": "Obtener Arbol Layout Sitio",
+        "description": "Retorna el árbol jerárquico completo de un sitio (zonas, subzonas y ubicaciones)\ncon coordenadas y dimensiones 2D/3D para el renderizador visual del frontend.",
+        "operationId": "obtener_arbol_layout_sitio_api_v2_layout_sitios__id_sitio__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_sitio",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Sitio"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutSitioTree"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/layout/zonas/{id_zona}": {
+      "patch": {
+        "tags": [
+          "V2 - Editor de Layout 2D/3D"
+        ],
+        "summary": "Actualizar Layout Zona",
+        "description": "Actualiza la posición, rotación o dimensiones espaciales de una zona.",
+        "operationId": "actualizar_layout_zona_api_v2_layout_zonas__id_zona__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_zona",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Zona"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LayoutUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/layout/ubicaciones/{id_ubicacion}": {
+      "patch": {
+        "tags": [
+          "V2 - Editor de Layout 2D/3D"
+        ],
+        "summary": "Actualizar Layout Ubicacion",
+        "description": "Actualiza la posición 2D/3D o dimensiones de una ubicación individual.",
+        "operationId": "actualizar_layout_ubicacion_api_v2_layout_ubicaciones__id_ubicacion__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_ubicacion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Ubicacion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LayoutUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/layout/ubicaciones/batch": {
+      "post": {
+        "tags": [
+          "V2 - Editor de Layout 2D/3D"
+        ],
+        "summary": "Crear Ubicaciones Batch",
+        "description": "Creación masiva de ubicaciones dentro de una zona para el editor visual\n(por ejemplo, racks completos estructurados por fila, nivel y compartimento).",
+        "operationId": "crear_ubicaciones_batch_api_v2_layout_ubicaciones_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UbicacionBatchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/demo/seed": {
+      "post": {
+        "tags": [
+          "V2 - Generador de Datos Demo"
+        ],
+        "summary": "Sembrar Datos Demo",
+        "description": "Puebla un dataset ficticio reproducible para demostraciones y pruebas del sistema.",
+        "operationId": "sembrar_datos_demo_api_v2_demo_seed_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Preset: salmonera o general",
+              "default": "salmonera",
+              "title": "Preset"
+            },
+            "description": "Preset: salmonera o general"
+          },
+          {
+            "name": "en_organizacion_actual",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Si es True, puebla la organización actual; si es False, crea una nueva.",
+              "default": true,
+              "title": "En Organizacion Actual"
+            },
+            "description": "Si es True, puebla la organización actual; si es False, crea una nueva."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Sembrar Datos Demo Api V2 Demo Seed Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/integraciones/webhooks": {
+      "get": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Listar Webhooks",
+        "operationId": "listar_webhooks_api_v2_integraciones_webhooks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Crear Webhook",
+        "operationId": "crear_webhook_api_v2_integraciones_webhooks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/integraciones/webhooks/{id_destino}": {
+      "patch": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Actualizar Webhook",
+        "operationId": "actualizar_webhook_api_v2_integraciones_webhooks__id_destino__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_destino",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Destino"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/integraciones/webhooks/entregas": {
+      "get": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Listar Entregas Webhook",
+        "operationId": "listar_entregas_webhook_api_v2_integraciones_webhooks_entregas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/integraciones/conectores": {
+      "get": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Listar Conectores",
+        "description": "Lista los conectores disponibles en el registro central.",
+        "operationId": "listar_conectores_api_v2_integraciones_conectores_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/integraciones/conectores/{id_conector}/probar": {
+      "post": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Probar Conector",
+        "description": "Prueba la conectividad de un conector con los parámetros suministrados.",
+        "operationId": "probar_conector_api_v2_integraciones_conectores__id_conector__probar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_conector",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Conector"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConectorTestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/integraciones/{fuente}/eventos": {
+      "post": {
+        "tags": [
+          "V2 - Integraciones y Webhooks"
+        ],
+        "summary": "Recibir Evento Externo",
+        "description": "Entrada genérica de eventos para sistemas externos (ERP, WMS, básculas, RFID, sensores).\nDespacha el evento al Bus de Eventos interno de SalmoTrack v2.",
+        "operationId": "recibir_evento_externo_api_v2_integraciones__fuente__eventos_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "fuente",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,100}$",
+              "title": "Fuente"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventoEntrante"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/usuarios": {
+      "get": {
+        "tags": [
+          "V2 - Usuarios"
+        ],
+        "summary": "Listar Usuarios",
+        "operationId": "listar_usuarios_api_v2_usuarios_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "V2 - Usuarios"
+        ],
+        "summary": "Crear Usuario",
+        "operationId": "crear_usuario_api_v2_usuarios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsuarioV2Create"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/usuarios/{id_usuario}": {
+      "patch": {
+        "tags": [
+          "V2 - Usuarios"
+        ],
+        "summary": "Actualizar Usuario",
+        "operationId": "actualizar_usuario_api_v2_usuarios__id_usuario__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_usuario",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Usuario"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsuarioV2Update"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/roles/permisos": {
+      "get": {
+        "tags": [
+          "V2 - Roles y permisos"
+        ],
+        "summary": "Listar Permisos",
+        "operationId": "listar_permisos_api_v2_roles_permisos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/roles": {
+      "get": {
+        "tags": [
+          "V2 - Roles y permisos"
+        ],
+        "summary": "Listar Roles",
+        "operationId": "listar_roles_api_v2_roles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "V2 - Roles y permisos"
+        ],
+        "summary": "Crear Rol",
+        "operationId": "crear_rol_api_v2_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/roles/plantillas": {
+      "post": {
+        "tags": [
+          "V2 - Roles y permisos"
+        ],
+        "summary": "Cargar Plantillas",
+        "operationId": "cargar_plantillas_api_v2_roles_plantillas_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/roles/{id_rol}": {
+      "patch": {
+        "tags": [
+          "V2 - Roles y permisos"
+        ],
+        "summary": "Actualizar Rol",
+        "operationId": "actualizar_rol_api_v2_roles__id_rol__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_rol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Rol"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ws/health": {
       "get": {
         "tags": [
           "Sistema"
         ],
         "summary": "Ws Health",
-        "description": "Verifica que el path /ws/ est\u00e1 expuesto (\u00fatil para diagn\u00f3stico en Render).",
+        "description": "Verifica que el path /ws/ está expuesto (útil para diagnóstico en Render).",
         "operationId": "ws_health_ws_health_get",
         "responses": {
           "200": {
@@ -4170,17 +7188,31 @@
   },
   "components": {
     "schemas": {
-      "AlertaRead": {
+      "AlertaRevisar": {
         "properties": {
-          "id": {
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          }
+        },
+        "type": "object",
+        "title": "AlertaRevisar"
+      },
+      "BIInconsistenciaFact": {
+        "properties": {
+          "id_inconsistencia": {
             "type": "string",
-            "title": "Id"
+            "title": "Id Inconsistencia"
           },
-          "id_container": {
-            "type": "string",
-            "title": "Id Container"
-          },
-          "id_usuario_revision": {
+          "id_ubicacion": {
             "anyOf": [
               {
                 "type": "string"
@@ -4189,64 +7221,142 @@
                 "type": "null"
               }
             ],
-            "title": "Id Usuario Revision"
+            "title": "Id Ubicacion"
           },
-          "tipo": {
+          "fecha_deteccion": {
             "type": "string",
-            "title": "Tipo"
+            "format": "date-time",
+            "title": "Fecha Deteccion"
           },
-          "severidad": {
+          "tipo_inconsistencia": {
             "type": "string",
-            "title": "Severidad"
+            "title": "Tipo Inconsistencia"
           },
-          "descripcion": {
-            "type": "string",
-            "title": "Descripcion"
-          },
-          "estado": {
-            "type": "string",
-            "title": "Estado"
-          },
-          "fecha_generacion": {
+          "codigo_ubicacion": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date-time"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Fecha Generacion"
+            "title": "Codigo Ubicacion"
           },
-          "fecha_revision": {
+          "codigo_item": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date-time"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Fecha Revision"
+            "title": "Codigo Item"
+          },
+          "numero_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Lote"
+          },
+          "cantidad_externa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cantidad Externa"
+          },
+          "resuelto": {
+            "type": "boolean",
+            "title": "Resuelto"
           }
         },
         "type": "object",
         "required": [
-          "id",
-          "id_container",
-          "tipo",
-          "severidad",
-          "descripcion",
-          "estado"
+          "id_inconsistencia",
+          "fecha_deteccion",
+          "tipo_inconsistencia",
+          "resuelto"
         ],
-        "title": "AlertaRead",
-        "description": "Response schema para alertas \u2014 NUNCA incluir RUT (Ley 19.628)."
+        "title": "BIInconsistenciaFact"
       },
-      "AlertaResolver": {
+      "BIItemDimension": {
         "properties": {
-          "observacion": {
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "codigo_item": {
+            "type": "string",
+            "title": "Codigo Item"
+          },
+          "nombre_item": {
+            "type": "string",
+            "title": "Nombre Item"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "title": "Unidad Medida"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_item",
+          "codigo_item",
+          "nombre_item",
+          "categoria",
+          "unidad_medida",
+          "activo"
+        ],
+        "title": "BIItemDimension"
+      },
+      "BIMovimientoFact": {
+        "properties": {
+          "id_movimiento": {
+            "type": "string",
+            "title": "Id Movimiento"
+          },
+          "fecha_hora": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora"
+          },
+          "id_tipo_movimiento": {
+            "type": "string",
+            "title": "Id Tipo Movimiento"
+          },
+          "tipo_movimiento_codigo": {
+            "type": "string",
+            "title": "Tipo Movimiento Codigo"
+          },
+          "efecto_stock": {
+            "type": "string",
+            "title": "Efecto Stock"
+          },
+          "codigo_item": {
+            "type": "string",
+            "title": "Codigo Item"
+          },
+          "numero_lote": {
             "anyOf": [
               {
                 "type": "string"
@@ -4255,12 +7365,234 @@
                 "type": "null"
               }
             ],
-            "title": "Observacion"
+            "title": "Numero Lote"
+          },
+          "codigo_ubicacion_origen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codigo Ubicacion Origen"
+          },
+          "codigo_ubicacion_destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codigo Ubicacion Destino"
+          },
+          "cantidad": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "title": "Unidad Medida"
+          },
+          "codigo_empleado_operario": {
+            "type": "string",
+            "title": "Codigo Empleado Operario"
           }
         },
         "type": "object",
-        "title": "AlertaResolver",
-        "description": "PATCH /alertas/{id}/resolver \u2014 observaci\u00f3n opcional."
+        "required": [
+          "id_movimiento",
+          "fecha_hora",
+          "id_tipo_movimiento",
+          "tipo_movimiento_codigo",
+          "efecto_stock",
+          "codigo_item",
+          "cantidad",
+          "unidad_medida",
+          "codigo_empleado_operario"
+        ],
+        "title": "BIMovimientoFact"
+      },
+      "BISitioDimension": {
+        "properties": {
+          "id_sitio": {
+            "type": "string",
+            "title": "Id Sitio"
+          },
+          "codigo_sitio": {
+            "type": "string",
+            "title": "Codigo Sitio"
+          },
+          "nombre_sitio": {
+            "type": "string",
+            "title": "Nombre Sitio"
+          },
+          "tipo_sitio": {
+            "type": "string",
+            "title": "Tipo Sitio"
+          },
+          "total_zonas": {
+            "type": "integer",
+            "title": "Total Zonas"
+          },
+          "total_ubicaciones": {
+            "type": "integer",
+            "title": "Total Ubicaciones"
+          },
+          "capacidad_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Capacidad Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_sitio",
+          "codigo_sitio",
+          "nombre_sitio",
+          "tipo_sitio",
+          "total_zonas",
+          "total_ubicaciones",
+          "capacidad_total"
+        ],
+        "title": "BISitioDimension"
+      },
+      "BIStockFact": {
+        "properties": {
+          "id_ubicacion": {
+            "type": "string",
+            "title": "Id Ubicacion"
+          },
+          "codigo_ubicacion": {
+            "type": "string",
+            "title": "Codigo Ubicacion"
+          },
+          "id_sitio": {
+            "type": "string",
+            "title": "Id Sitio"
+          },
+          "codigo_sitio": {
+            "type": "string",
+            "title": "Codigo Sitio"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "codigo_item": {
+            "type": "string",
+            "title": "Codigo Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "numero_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Lote"
+          },
+          "cantidad_saldo": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad Saldo"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "title": "Unidad Medida"
+          },
+          "capacidad_maxima": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Capacidad Maxima"
+          },
+          "ocupacion_actual": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Ocupacion Actual"
+          },
+          "porcentaje_ocupacion": {
+            "type": "number",
+            "title": "Porcentaje Ocupacion"
+          },
+          "fecha_actualizacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Actualizacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_ubicacion",
+          "codigo_ubicacion",
+          "id_sitio",
+          "codigo_sitio",
+          "id_item",
+          "codigo_item",
+          "cantidad_saldo",
+          "unidad_medida",
+          "capacidad_maxima",
+          "ocupacion_actual",
+          "porcentaje_ocupacion",
+          "fecha_actualizacion"
+        ],
+        "title": "BIStockFact"
+      },
+      "Body_conciliar_archivo_externo_api_v2_importacion_conciliar_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "Archivo CSV o Excel (.xlsx) emitido por el ERP/WMS"
+          },
+          "id_mapping_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Mapping Profile",
+            "description": "ID del perfil de mapeo guardado"
+          },
+          "mapeo_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapeo Json",
+            "description": "Mapeo inline JSON alternativo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_conciliar_archivo_externo_api_v2_importacion_conciliar_post"
       },
       "Body_importar_productos_csv_productos_importar_post": {
         "properties": {
@@ -4334,6 +7666,40 @@
           "password"
         ],
         "title": "Body_login_auth_login_post"
+      },
+      "ConciliacionResultado": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/ImportacionJobRead"
+          },
+          "inconsistencias": {
+            "items": {
+              "$ref": "#/components/schemas/InconsistenciaRead"
+            },
+            "type": "array",
+            "title": "Inconsistencias"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job",
+          "inconsistencias"
+        ],
+        "title": "ConciliacionResultado"
+      },
+      "ConectorTestRequest": {
+        "properties": {
+          "configuracion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuracion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configuracion"
+        ],
+        "title": "ConectorTestRequest"
       },
       "ContainerCreate": {
         "properties": {
@@ -4446,6 +7812,57 @@
         ],
         "title": "ContainerRead"
       },
+      "DashboardKPIs": {
+        "properties": {
+          "capacidad_instalada": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Capacidad Instalada"
+          },
+          "stock_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Stock Total"
+          },
+          "ubicaciones_libres": {
+            "type": "integer",
+            "title": "Ubicaciones Libres"
+          },
+          "porcentaje_uso": {
+            "type": "number",
+            "title": "Porcentaje Uso"
+          },
+          "cantidad_inconsistencias": {
+            "type": "integer",
+            "title": "Cantidad Inconsistencias"
+          },
+          "total_ubicaciones": {
+            "type": "integer",
+            "title": "Total Ubicaciones"
+          },
+          "total_items": {
+            "type": "integer",
+            "title": "Total Items"
+          },
+          "alertas_activas": {
+            "type": "integer",
+            "title": "Alertas Activas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capacidad_instalada",
+          "stock_total",
+          "ubicaciones_libres",
+          "porcentaje_uso",
+          "cantidad_inconsistencias",
+          "total_ubicaciones",
+          "total_items",
+          "alertas_activas"
+        ],
+        "title": "DashboardKPIs",
+        "description": "Cinco indicadores mínimos requeridos para supervisor (Fase 1F)."
+      },
       "EsquemaAtributosCreate": {
         "properties": {
           "entidad": {
@@ -4528,6 +7945,65 @@
         ],
         "title": "EsquemaAtributosRead"
       },
+      "EvaluarAlertasResultado": {
+        "properties": {
+          "reglas_evaluadas": {
+            "type": "integer",
+            "title": "Reglas Evaluadas"
+          },
+          "nuevas_alertas": {
+            "type": "integer",
+            "title": "Nuevas Alertas"
+          },
+          "alertas_creadas": {
+            "items": {
+              "$ref": "#/components/schemas/app__schemas__v2__alerta__AlertaRead"
+            },
+            "type": "array",
+            "title": "Alertas Creadas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reglas_evaluadas",
+          "nuevas_alertas",
+          "alertas_creadas"
+        ],
+        "title": "EvaluarAlertasResultado"
+      },
+      "EventoEntrante": {
+        "properties": {
+          "id_evento_externo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Evento Externo",
+            "description": "UUID o ID externo para idempotencia"
+          },
+          "tipo_evento": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_.-]{1,100}$",
+            "title": "Tipo Evento",
+            "description": "ej: stock.updated, movimiento.sync, rfid.read"
+          },
+          "datos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Datos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo_evento"
+        ],
+        "title": "EventoEntrante"
+      },
       "EvolucionItem": {
         "properties": {
           "fecha": {
@@ -4555,7 +8031,7 @@
           "salidas"
         ],
         "title": "EvolucionItem",
-        "description": "Evoluci\u00f3n de movimientos por d\u00eda \u2014 formato Recharts LineChart."
+        "description": "Evolución de movimientos por día — formato Recharts LineChart."
       },
       "ForgotPasswordRequest": {
         "properties": {
@@ -4726,6 +8202,287 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImportacionJobRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "id_mapping_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Mapping Profile"
+          },
+          "nombre_archivo": {
+            "type": "string",
+            "title": "Nombre Archivo"
+          },
+          "tipo_fuente": {
+            "type": "string",
+            "title": "Tipo Fuente"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "total_registros": {
+            "type": "integer",
+            "title": "Total Registros"
+          },
+          "registros_validos": {
+            "type": "integer",
+            "title": "Registros Validos"
+          },
+          "registros_inconsistentes": {
+            "type": "integer",
+            "title": "Registros Inconsistentes"
+          },
+          "fecha_inicio": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Inicio"
+          },
+          "fecha_fin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Fin"
+          },
+          "resumen": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Resumen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "nombre_archivo",
+          "tipo_fuente",
+          "estado",
+          "total_registros",
+          "registros_validos",
+          "registros_inconsistentes",
+          "fecha_inicio"
+        ],
+        "title": "ImportacionJobRead"
+      },
+      "InconsistenciaDashboardItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion"
+          },
+          "id_job": {
+            "type": "string",
+            "title": "Id Job"
+          },
+          "fila_origen": {
+            "type": "integer",
+            "title": "Fila Origen"
+          },
+          "tipo_inconsistencia": {
+            "type": "string",
+            "title": "Tipo Inconsistencia"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "codigo_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codigo Ubicacion"
+          },
+          "codigo_item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codigo Item"
+          },
+          "numero_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Lote"
+          },
+          "cantidad_externa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cantidad Externa"
+          },
+          "fecha_deteccion": {
+            "type": "string",
+            "title": "Fecha Deteccion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_job",
+          "fila_origen",
+          "tipo_inconsistencia",
+          "motivo",
+          "fecha_deteccion"
+        ],
+        "title": "InconsistenciaDashboardItem"
+      },
+      "InconsistenciaRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion"
+          },
+          "id_importacion_job": {
+            "type": "string",
+            "title": "Id Importacion Job"
+          },
+          "fila_origen": {
+            "type": "integer",
+            "title": "Fila Origen"
+          },
+          "tipo_inconsistencia": {
+            "type": "string",
+            "title": "Tipo Inconsistencia"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "codigo_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codigo Ubicacion"
+          },
+          "codigo_item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codigo Item"
+          },
+          "numero_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Lote"
+          },
+          "cantidad_externa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cantidad Externa"
+          },
+          "datos_crudos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Datos Crudos"
+          },
+          "resuelto": {
+            "type": "boolean",
+            "title": "Resuelto"
+          },
+          "fecha_deteccion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Deteccion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_importacion_job",
+          "fila_origen",
+          "tipo_inconsistencia",
+          "motivo",
+          "resuelto",
+          "fecha_deteccion"
+        ],
+        "title": "InconsistenciaRead"
       },
       "ItemCreate": {
         "properties": {
@@ -4934,6 +8691,163 @@
         "title": "KPIResponse",
         "description": "KPIs globales de la sede."
       },
+      "LayoutSitioTree": {
+        "properties": {
+          "id_sitio": {
+            "type": "string",
+            "title": "Id Sitio"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "zonas": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutZonaNode"
+            },
+            "type": "array",
+            "title": "Zonas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_sitio",
+          "codigo",
+          "nombre",
+          "tipo",
+          "zonas"
+        ],
+        "title": "LayoutSitioTree"
+      },
+      "LayoutUbicacionNode": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "capacidad_maxima": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Capacidad Maxima"
+          },
+          "ocupacion_actual": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Ocupacion Actual"
+          },
+          "porcentaje_ocupacion": {
+            "type": "number",
+            "title": "Porcentaje Ocupacion"
+          },
+          "unidad_capacidad": {
+            "type": "string",
+            "title": "Unidad Capacidad"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "permite_mezcla_lotes": {
+            "type": "boolean",
+            "title": "Permite Mezcla Lotes"
+          },
+          "layout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Layout"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "codigo",
+          "capacidad_maxima",
+          "ocupacion_actual",
+          "porcentaje_ocupacion",
+          "unidad_capacidad",
+          "estado",
+          "permite_mezcla_lotes",
+          "layout"
+        ],
+        "title": "LayoutUbicacionNode"
+      },
+      "LayoutUpdate": {
+        "properties": {
+          "layout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Layout",
+            "description": "Estructura de posicionamiento y dimensiones espaciales"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layout"
+        ],
+        "title": "LayoutUpdate"
+      },
+      "LayoutZonaNode": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "layout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Layout"
+          },
+          "subzonas": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutZonaNode"
+            },
+            "type": "array",
+            "title": "Subzonas",
+            "default": []
+          },
+          "ubicaciones": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutUbicacionNode"
+            },
+            "type": "array",
+            "title": "Ubicaciones",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "codigo",
+          "nombre",
+          "tipo",
+          "layout"
+        ],
+        "title": "LayoutZonaNode"
+      },
       "LoteCreate": {
         "properties": {
           "id_item": {
@@ -5109,6 +9023,218 @@
         },
         "type": "object",
         "title": "LoteUpdate"
+      },
+      "MappingProfileCreate": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "mapeo": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Mapeo",
+            "description": "Diccionario de mapeo de nombres de columna externa a campos canónicos: {'codigo_ubicacion': 'POS', 'codigo_item': 'SKU', 'cantidad': 'QTY', 'numero_lote': 'LOTE'}"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "mapeo"
+        ],
+        "title": "MappingProfileCreate"
+      },
+      "MappingProfileRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "mapeo": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Mapeo"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo"
+          },
+          "fecha_creacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Creacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "nombre",
+          "mapeo",
+          "activo",
+          "fecha_creacion"
+        ],
+        "title": "MappingProfileRead"
+      },
+      "MappingProfileUpdate": {
+        "properties": {
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "mapeo": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapeo"
+          },
+          "activo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activo"
+          }
+        },
+        "type": "object",
+        "title": "MappingProfileUpdate"
+      },
+      "ModuloEstadoUpdate": {
+        "properties": {
+          "habilitado": {
+            "type": "boolean",
+            "title": "Habilitado"
+          },
+          "configuracion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configuracion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "habilitado"
+        ],
+        "title": "ModuloEstadoUpdate"
+      },
+      "ModuloItemRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "habilitado": {
+            "type": "boolean",
+            "title": "Habilitado"
+          },
+          "rutas_api": {
+            "type": "string",
+            "title": "Rutas Api"
+          },
+          "configuracion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuracion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombre",
+          "version",
+          "descripcion",
+          "habilitado",
+          "rutas_api",
+          "configuracion"
+        ],
+        "title": "ModuloItemRead"
       },
       "MovimientoCreate": {
         "properties": {
@@ -5823,6 +9949,154 @@
         ],
         "title": "MovimientoRechazar"
       },
+      "MovimientoV2Read": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "id_solicitud": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Solicitud"
+          },
+          "id_tipo_movimiento": {
+            "type": "string",
+            "title": "Id Tipo Movimiento"
+          },
+          "id_movimiento_original": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Movimiento Original"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "id_ubicacion_origen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Origen"
+          },
+          "id_ubicacion_destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Destino"
+          },
+          "id_usuario": {
+            "type": "string",
+            "title": "Id Usuario"
+          },
+          "id_usuario_aprobador": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Usuario Aprobador"
+          },
+          "cantidad": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "title": "Unidad Medida"
+          },
+          "efecto_stock": {
+            "type": "string",
+            "title": "Efecto Stock"
+          },
+          "uuid_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid Local"
+          },
+          "atributos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Atributos"
+          },
+          "fecha_hora": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "id_tipo_movimiento",
+          "id_item",
+          "id_usuario",
+          "cantidad",
+          "unidad_medida",
+          "efecto_stock",
+          "fecha_hora"
+        ],
+        "title": "MovimientoV2Read"
+      },
       "OcupacionGalponItem": {
         "properties": {
           "name": {
@@ -5850,7 +10124,43 @@
           "estado"
         ],
         "title": "OcupacionGalponItem",
-        "description": "Ocupaci\u00f3n por galp\u00f3n \u2014 formato Recharts BarChart."
+        "description": "Ocupación por galpón — formato Recharts BarChart."
+      },
+      "PaginatedResponse_AlertaRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/app__schemas__v2__alerta__AlertaRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "PaginatedResponse[AlertaRead]"
       },
       "PaginatedResponse_ContainerRead_": {
         "properties": {
@@ -5923,6 +10233,42 @@
           "pages"
         ],
         "title": "PaginatedResponse[GalponRead]"
+      },
+      "PaginatedResponse_ImportacionJobRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportacionJobRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "PaginatedResponse[ImportacionJobRead]"
       },
       "PaginatedResponse_ItemRead_": {
         "properties": {
@@ -6032,6 +10378,42 @@
         ],
         "title": "PaginatedResponse[MovimientoListItem]"
       },
+      "PaginatedResponse_MovimientoV2Read_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MovimientoV2Read"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "PaginatedResponse[MovimientoV2Read]"
+      },
       "PaginatedResponse_ProductoRead_": {
         "properties": {
           "items": {
@@ -6140,6 +10522,42 @@
         ],
         "title": "PaginatedResponse[SitioRead]"
       },
+      "PaginatedResponse_SolicitudMovimientoRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SolicitudMovimientoRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "PaginatedResponse[SolicitudMovimientoRead]"
+      },
       "PaginatedResponse_UbicacionRead_": {
         "properties": {
           "items": {
@@ -6247,6 +10665,126 @@
           "pages"
         ],
         "title": "PaginatedResponse[ZonaRead]"
+      },
+      "PickingPlanResponse": {
+        "properties": {
+          "estrategia": {
+            "type": "string",
+            "title": "Estrategia"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "cantidad_solicitada": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad Solicitada"
+          },
+          "cantidad_asignada": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad Asignada"
+          },
+          "completado": {
+            "type": "boolean",
+            "title": "Completado"
+          },
+          "sugerencias": {
+            "items": {
+              "$ref": "#/components/schemas/PickingSugerenciaItem"
+            },
+            "type": "array",
+            "title": "Sugerencias"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estrategia",
+          "id_item",
+          "cantidad_solicitada",
+          "cantidad_asignada",
+          "completado",
+          "sugerencias"
+        ],
+        "title": "PickingPlanResponse"
+      },
+      "PickingStrategyUpdate": {
+        "properties": {
+          "estrategia": {
+            "type": "string",
+            "title": "Estrategia"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estrategia"
+        ],
+        "title": "PickingStrategyUpdate"
+      },
+      "PickingSugerenciaItem": {
+        "properties": {
+          "id_ubicacion": {
+            "type": "string",
+            "title": "Id Ubicacion"
+          },
+          "codigo_ubicacion": {
+            "type": "string",
+            "title": "Codigo Ubicacion"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "numero_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Lote"
+          },
+          "cantidad_disponible": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad Disponible"
+          },
+          "cantidad_sugerida": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad Sugerida"
+          },
+          "fecha_vencimiento": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vencimiento"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_ubicacion",
+          "codigo_ubicacion",
+          "cantidad_disponible",
+          "cantidad_sugerida"
+        ],
+        "title": "PickingSugerenciaItem"
       },
       "ProductoCreate": {
         "properties": {
@@ -6426,6 +10964,352 @@
         ],
         "title": "RefreshRequest"
       },
+      "ReglaAlertaCreate": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Codigo",
+            "description": "Código único de la regla dentro de la organización"
+          },
+          "nombre": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Nombre"
+          },
+          "tipo": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Tipo",
+            "description": "Categoría: capacidad, vencimiento, stock, inactividad, etc."
+          },
+          "configuracion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuracion",
+            "description": "Parámetros dinámicos (umbrales, días, etc.)"
+          },
+          "severidad": {
+            "type": "string",
+            "title": "Severidad",
+            "description": "critica, aviso, o informativa",
+            "default": "aviso"
+          },
+          "habilitada": {
+            "type": "boolean",
+            "title": "Habilitada",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nombre",
+          "tipo"
+        ],
+        "title": "ReglaAlertaCreate"
+      },
+      "ReglaAlertaRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "configuracion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuracion"
+          },
+          "severidad": {
+            "type": "string",
+            "title": "Severidad"
+          },
+          "habilitada": {
+            "type": "boolean",
+            "title": "Habilitada"
+          },
+          "fecha_creacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Creacion"
+          },
+          "fecha_actualizacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Actualizacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "codigo",
+          "nombre",
+          "tipo",
+          "configuracion",
+          "severidad",
+          "habilitada",
+          "fecha_creacion",
+          "fecha_actualizacion"
+        ],
+        "title": "ReglaAlertaRead"
+      },
+      "ReglaAlertaUpdate": {
+        "properties": {
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "configuracion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configuracion"
+          },
+          "severidad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severidad"
+          },
+          "habilitada": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Habilitada"
+          }
+        },
+        "type": "object",
+        "title": "ReglaAlertaUpdate"
+      },
+      "ReglaUbicacionCreate": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Nombre"
+          },
+          "tipo_regla": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Tipo Regla"
+          },
+          "id_sitio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Sitio"
+          },
+          "id_zona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Zona"
+          },
+          "id_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion"
+          },
+          "configuracion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuracion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nombre",
+          "tipo_regla"
+        ],
+        "title": "ReglaUbicacionCreate"
+      },
+      "ReglaUbicacionRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "id_sitio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Sitio"
+          },
+          "id_zona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Zona"
+          },
+          "id_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "tipo_regla": {
+            "type": "string",
+            "title": "Tipo Regla"
+          },
+          "configuracion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuracion"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo"
+          },
+          "fecha_creacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Creacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "codigo",
+          "nombre",
+          "tipo_regla",
+          "configuracion",
+          "activo",
+          "fecha_creacion"
+        ],
+        "title": "ReglaUbicacionRead"
+      },
+      "ReglaUbicacionUpdate": {
+        "properties": {
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "configuracion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configuracion"
+          },
+          "activo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activo"
+          }
+        },
+        "type": "object",
+        "title": "ReglaUbicacionUpdate"
+      },
       "ResetPasswordRequest": {
         "properties": {
           "token": {
@@ -6444,6 +11328,46 @@
         ],
         "title": "ResetPasswordRequest"
       },
+      "RolCreate": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{2,49}$",
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 250
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "permisos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permisos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nombre"
+        ],
+        "title": "RolCreate"
+      },
       "RolEnum": {
         "type": "string",
         "enum": [
@@ -6454,6 +11378,118 @@
           "gerencia"
         ],
         "title": "RolEnum"
+      },
+      "RolUpdate": {
+        "properties": {
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 250
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "activo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activo"
+          },
+          "permisos": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permisos"
+          }
+        },
+        "type": "object",
+        "title": "RolUpdate"
+      },
+      "SaldoStockRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "id_ubicacion": {
+            "type": "string",
+            "title": "Id Ubicacion"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "cantidad": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "title": "Unidad Medida"
+          },
+          "fecha_actualizacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Actualizacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "id_ubicacion",
+          "id_item",
+          "cantidad",
+          "unidad_medida",
+          "fecha_actualizacion"
+        ],
+        "title": "SaldoStockRead"
       },
       "SedeCreate": {
         "properties": {
@@ -6875,6 +11911,579 @@
         "type": "object",
         "title": "SitioUpdate"
       },
+      "SolicitudMovimientoCreate": {
+        "properties": {
+          "id_tipo_movimiento": {
+            "type": "string",
+            "title": "Id Tipo Movimiento"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "id_ubicacion_origen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Origen"
+          },
+          "id_ubicacion_destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Destino"
+          },
+          "cantidad": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Cantidad"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Unidad Medida"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "uuid_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid Local"
+          },
+          "atributos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Atributos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_tipo_movimiento",
+          "id_item",
+          "cantidad",
+          "unidad_medida"
+        ],
+        "title": "SolicitudMovimientoCreate"
+      },
+      "SolicitudMovimientoRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "id_tipo_movimiento": {
+            "type": "string",
+            "title": "Id Tipo Movimiento"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "id_ubicacion_origen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Origen"
+          },
+          "id_ubicacion_destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Destino"
+          },
+          "id_usuario_solicitante": {
+            "type": "string",
+            "title": "Id Usuario Solicitante"
+          },
+          "id_usuario_aprobador": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Usuario Aprobador"
+          },
+          "cantidad": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "title": "Unidad Medida"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "motivo_rechazo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Rechazo"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "uuid_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid Local"
+          },
+          "atributos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Atributos"
+          },
+          "fecha_creacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Creacion"
+          },
+          "fecha_resolucion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Resolucion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "id_tipo_movimiento",
+          "id_item",
+          "id_usuario_solicitante",
+          "cantidad",
+          "unidad_medida",
+          "estado",
+          "fecha_creacion"
+        ],
+        "title": "SolicitudMovimientoRead"
+      },
+      "SolicitudRechazar": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "SolicitudRechazar"
+      },
+      "SyncBatchRequest": {
+        "properties": {
+          "movimientos": {
+            "items": {
+              "$ref": "#/components/schemas/SyncMovimientoItem"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Movimientos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "movimientos"
+        ],
+        "title": "SyncBatchRequest"
+      },
+      "SyncBatchResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "sincronizados": {
+            "type": "integer",
+            "title": "Sincronizados"
+          },
+          "pendientes": {
+            "type": "integer",
+            "title": "Pendientes",
+            "default": 0
+          },
+          "rechazados": {
+            "type": "integer",
+            "title": "Rechazados"
+          },
+          "resultados": {
+            "items": {
+              "$ref": "#/components/schemas/SyncMovimientoResultado"
+            },
+            "type": "array",
+            "title": "Resultados"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "sincronizados",
+          "rechazados",
+          "resultados"
+        ],
+        "title": "SyncBatchResponse"
+      },
+      "SyncMovimientoItem": {
+        "properties": {
+          "uuid_local": {
+            "type": "string",
+            "title": "Uuid Local",
+            "description": "UUID generado en el cliente local (Dexie.js / PWA)"
+          },
+          "id_tipo_movimiento": {
+            "type": "string",
+            "title": "Id Tipo Movimiento"
+          },
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "id_ubicacion_origen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Origen"
+          },
+          "id_ubicacion_destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion Destino"
+          },
+          "cantidad": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Cantidad"
+          },
+          "unidad_medida": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Unidad Medida"
+          },
+          "fecha_hora_local": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Hora Local"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "atributos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Atributos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uuid_local",
+          "id_tipo_movimiento",
+          "id_item",
+          "cantidad",
+          "unidad_medida"
+        ],
+        "title": "SyncMovimientoItem"
+      },
+      "SyncMovimientoResultado": {
+        "properties": {
+          "uuid_local": {
+            "type": "string",
+            "title": "Uuid Local"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "id_movimiento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Movimiento"
+          },
+          "id_solicitud": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Solicitud"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uuid_local",
+          "estado"
+        ],
+        "title": "SyncMovimientoResultado"
+      },
+      "TipoMovimientoCreate": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Nombre"
+          },
+          "efecto_stock": {
+            "type": "string",
+            "enum": [
+              "entrada",
+              "salida",
+              "traslado",
+              "sin_efecto"
+            ],
+            "title": "Efecto Stock"
+          },
+          "requiere_origen": {
+            "type": "boolean",
+            "title": "Requiere Origen",
+            "default": false
+          },
+          "requiere_destino": {
+            "type": "boolean",
+            "title": "Requiere Destino",
+            "default": false
+          },
+          "requiere_aprobacion": {
+            "type": "boolean",
+            "title": "Requiere Aprobacion",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nombre",
+          "efecto_stock"
+        ],
+        "title": "TipoMovimientoCreate"
+      },
+      "TipoMovimientoRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "efecto_stock": {
+            "type": "string",
+            "title": "Efecto Stock"
+          },
+          "requiere_origen": {
+            "type": "boolean",
+            "title": "Requiere Origen"
+          },
+          "requiere_destino": {
+            "type": "boolean",
+            "title": "Requiere Destino"
+          },
+          "requiere_aprobacion": {
+            "type": "boolean",
+            "title": "Requiere Aprobacion"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "codigo",
+          "nombre",
+          "efecto_stock",
+          "requiere_origen",
+          "requiere_destino",
+          "requiere_aprobacion",
+          "activo"
+        ],
+        "title": "TipoMovimientoRead"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -6905,6 +12514,69 @@
           "B"
         ],
         "title": "TurnoEnum"
+      },
+      "UbicacionBatchCreate": {
+        "properties": {
+          "id_zona": {
+            "type": "string",
+            "title": "Id Zona"
+          },
+          "ubicaciones": {
+            "items": {
+              "$ref": "#/components/schemas/UbicacionBatchItem"
+            },
+            "type": "array",
+            "title": "Ubicaciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_zona",
+          "ubicaciones"
+        ],
+        "title": "UbicacionBatchCreate"
+      },
+      "UbicacionBatchItem": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "capacidad_maxima": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Capacidad Maxima"
+          },
+          "unidad_capacidad": {
+            "type": "string",
+            "title": "Unidad Capacidad"
+          },
+          "layout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Layout"
+          },
+          "permite_mezcla_lotes": {
+            "type": "boolean",
+            "title": "Permite Mezcla Lotes",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "capacidad_maxima",
+          "unidad_capacidad"
+        ],
+        "title": "UbicacionBatchItem"
       },
       "UbicacionCreate": {
         "properties": {
@@ -6965,6 +12637,51 @@
           "unidad_capacidad"
         ],
         "title": "UbicacionCreate"
+      },
+      "UbicacionOcupacionItem": {
+        "properties": {
+          "id_ubicacion": {
+            "type": "string",
+            "title": "Id Ubicacion"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "capacidad_maxima": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Capacidad Maxima"
+          },
+          "ocupacion_actual": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Ocupacion Actual"
+          },
+          "porcentaje_ocupacion": {
+            "type": "number",
+            "title": "Porcentaje Ocupacion"
+          },
+          "unidad_capacidad": {
+            "type": "string",
+            "title": "Unidad Capacidad"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_ubicacion",
+          "codigo",
+          "capacidad_maxima",
+          "ocupacion_actual",
+          "porcentaje_ocupacion",
+          "unidad_capacidad",
+          "estado"
+        ],
+        "title": "UbicacionOcupacionItem"
       },
       "UbicacionRead": {
         "properties": {
@@ -7264,7 +12981,7 @@
           "fecha_creacion"
         ],
         "title": "UsuarioRead",
-        "description": "Lo que devuelve la API. Nunca incluir rut ni password_hash.\nLey 19.628 \u2014 protecci\u00f3n de datos personales."
+        "description": "Lo que devuelve la API. Nunca incluir rut ni password_hash.\nLey 19.628 — protección de datos personales."
       },
       "UsuarioUpdate": {
         "properties": {
@@ -7348,6 +13065,141 @@
         "type": "object",
         "title": "UsuarioUpdate"
       },
+      "UsuarioV2Create": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "codigo_empleado": {
+            "type": "string",
+            "title": "Codigo Empleado"
+          },
+          "rol": {
+            "$ref": "#/components/schemas/RolEnum"
+          },
+          "id_sede": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Sede"
+          },
+          "turno": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurnoEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id_rol_v2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Rol V2"
+          },
+          "sitios_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sitios Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "email",
+          "password",
+          "codigo_empleado",
+          "rol"
+        ],
+        "title": "UsuarioV2Create"
+      },
+      "UsuarioV2Update": {
+        "properties": {
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "activo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activo"
+          },
+          "rol": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RolEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id_rol_v2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Rol V2"
+          },
+          "sitios_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sitios Ids"
+          }
+        },
+        "type": "object",
+        "title": "UsuarioV2Update"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -7387,6 +13239,80 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebhookCreate": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Url"
+          },
+          "secreto": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 16,
+            "title": "Secreto"
+          },
+          "eventos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Eventos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "secreto",
+          "eventos"
+        ],
+        "title": "WebhookCreate"
+      },
+      "WebhookUpdate": {
+        "properties": {
+          "activo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activo"
+          },
+          "secreto": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512,
+                "minLength": 16
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secreto"
+          },
+          "eventos": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eventos"
+          }
+        },
+        "type": "object",
+        "title": "WebhookUpdate"
       },
       "ZonaCreate": {
         "properties": {
@@ -7574,6 +13500,260 @@
         },
         "type": "object",
         "title": "ZonaUpdate"
+      },
+      "app__schemas__alerta__AlertaRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_container": {
+            "type": "string",
+            "title": "Id Container"
+          },
+          "id_usuario_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Usuario Revision"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "severidad": {
+            "type": "string",
+            "title": "Severidad"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "fecha_generacion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Generacion"
+          },
+          "fecha_revision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Revision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_container",
+          "tipo",
+          "severidad",
+          "descripcion",
+          "estado"
+        ],
+        "title": "AlertaRead",
+        "description": "Response schema para alertas — NUNCA incluir RUT (Ley 19.628)."
+      },
+      "app__schemas__alerta__AlertaResolver": {
+        "properties": {
+          "observacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observacion"
+          }
+        },
+        "type": "object",
+        "title": "AlertaResolver",
+        "description": "PATCH /alertas/{id}/resolver — observación opcional."
+      },
+      "app__schemas__v2__alerta__AlertaRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "id_organizacion": {
+            "type": "string",
+            "title": "Id Organizacion"
+          },
+          "id_regla": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Regla"
+          },
+          "id_sitio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Sitio"
+          },
+          "id_ubicacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Ubicacion"
+          },
+          "id_item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Item"
+          },
+          "id_lote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Lote"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "severidad": {
+            "type": "string",
+            "title": "Severidad"
+          },
+          "titulo": {
+            "type": "string",
+            "title": "Titulo"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "id_usuario_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Usuario Revision"
+          },
+          "fecha_generacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Generacion"
+          },
+          "fecha_revision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Revision"
+          },
+          "fecha_resolucion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Resolucion"
+          },
+          "metadatos": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadatos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "id_organizacion",
+          "tipo",
+          "severidad",
+          "titulo",
+          "descripcion",
+          "estado",
+          "fecha_generacion"
+        ],
+        "title": "AlertaRead"
+      },
+      "app__schemas__v2__alerta__AlertaResolver": {
+        "properties": {
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          }
+        },
+        "type": "object",
+        "title": "AlertaResolver"
       }
     },
     "securitySchemes": {

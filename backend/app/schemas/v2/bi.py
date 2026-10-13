@@ -65,6 +65,7 @@ class BIMovimientoFact(BaseModel):
 
 class BIInconsistenciaFact(BaseModel):
     id_inconsistencia: str
+    id_ubicacion: Optional[str] = None
     fecha_deteccion: datetime
     tipo_inconsistencia: str
     codigo_ubicacion: Optional[str] = None

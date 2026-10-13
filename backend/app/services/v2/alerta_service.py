@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
+from app.core.site_access import scope_alert_query
 from app.models.log_auditoria import LogAuditoria
 from app.models.v2.alerta import AlertaV2, ReglaAlertaV2
 from app.models.v2.lote import Lote
@@ -261,7 +262,7 @@ class AlertaServiceV2:
             AlertaV2.id == id_alerta,
             AlertaV2.id_organizacion == tenant.id_organizacion,
         )
-        alerta = (await db.execute(stmt)).scalar_one_or_none()
+        alerta = (await db.execute(scope_alert_query(stmt, tenant, AlertaV2))).scalar_one_or_none()
         if not alerta:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alerta no encontrada")
 
@@ -296,7 +297,7 @@ class AlertaServiceV2:
             AlertaV2.id == id_alerta,
             AlertaV2.id_organizacion == tenant.id_organizacion,
         )
-        alerta = (await db.execute(stmt)).scalar_one_or_none()
+        alerta = (await db.execute(scope_alert_query(stmt, tenant, AlertaV2))).scalar_one_or_none()
         if not alerta:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alerta no encontrada")
 

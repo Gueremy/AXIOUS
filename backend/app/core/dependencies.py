@@ -80,6 +80,14 @@ def require_role(roles: List[str]):
     return _check_role
 
 
+async def require_legacy_user(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+    """La API v1 sólo opera con cuentas v1; evita escapar del aislamiento v2."""
+    if current_user.id_organizacion is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Esta cuenta debe usar la API v2")
+    return current_user
+
+
 # ─── Usuario opcional (endpoints semi-públicos) ───────────────────────────────
 async def get_optional_user(
     token: str = Depends(OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)),

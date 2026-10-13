@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class Sitio(Base):
@@ -16,7 +17,7 @@ class Sitio(Base):
     tipo = Column(String(50), nullable=False)  # e.g., 'planta', 'bodega', 'centro_flotante', 'patio'
     descripcion = Column(String(300), nullable=True)
     ubicacion_geografica = Column(String(200), nullable=True)
-    atributos = Column(JSON, default=dict, nullable=False)
+    atributos = Column(JSONDocument, default=dict, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

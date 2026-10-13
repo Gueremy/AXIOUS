@@ -236,6 +236,30 @@ async def test_conciliacion_csv_detecta_inconsistencias(client: AsyncClient, set
 
 
 @pytest.mark.asyncio
+async def test_codigo_ubicacion_duplicado_se_resuelve_con_zona(client: AsyncClient, db, setup_conciliacion_fixture):
+    ctx = setup_conciliacion_fixture
+    original = ctx["ubi_normal"]
+    zone = Zona(id=str(uuid.uuid4()), id_organizacion=ctx["org_a"].id,
+                id_sitio=(await db.get(Zona, original.id_zona)).id_sitio,
+                codigo="ZON-B", nombre="Sector B", tipo="sector")
+    db.add(zone)
+    await db.flush()
+    db.add(Ubicacion(id=str(uuid.uuid4()), id_organizacion=ctx["org_a"].id,
+                     id_zona=zone.id, codigo=original.codigo,
+                     capacidad_maxima=5000, unidad_capacidad="kg"))
+    await db.commit()
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+    csv_content = ("SITIO,ZONA,POSICION,SKU,CANTIDAD\n"
+                   f"SIT-CNC-01,,{original.codigo},SKU-ALIMENTO-01,10\n"
+                   f"SIT-CNC-01,ZON-A,{original.codigo},SKU-ALIMENTO-01,10\n")
+    response = await client.post("/api/v2/importacion/conciliar", headers=headers,
+                                 files={"file": ("duplicadas.csv", csv_content.encode(), "text/csv")})
+    assert response.status_code == 200, response.text
+    assert response.json()["job"]["registros_validos"] == 1
+    assert [i["tipo_inconsistencia"] for i in response.json()["inconsistencias"]] == ["ubicacion_ambigua"]
+
+
+@pytest.mark.asyncio
 async def test_conciliacion_excel_valida_y_procesa(client: AsyncClient, setup_conciliacion_fixture):
     """Genera en memoria un archivo Excel .xlsx válido y ejecuta la conciliación."""
     ctx = setup_conciliacion_fixture

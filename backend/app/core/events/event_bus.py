@@ -29,7 +29,9 @@ class EventBus:
     @classmethod
     def subscribe(cls, event_name: str, handler: HandlerType) -> None:
         """Registra un suscriptor para un tipo de evento específico."""
-        cls._subscribers.setdefault(event_name, []).append(handler)
+        subscribers = cls._subscribers.setdefault(event_name, [])
+        if handler not in subscribers:
+            subscribers.append(handler)
 
     @classmethod
     def clear(cls) -> None:

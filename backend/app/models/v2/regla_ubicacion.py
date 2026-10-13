@@ -13,6 +13,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class ReglaUbicacion(Base):
@@ -26,6 +27,6 @@ class ReglaUbicacion(Base):
     codigo = Column(String(50), nullable=False)  # e.g., 'NO_MEZCLA_LOTES', 'SOLO_MATERIA_PRIMA'
     nombre = Column(String(100), nullable=False)
     tipo_regla = Column(String(50), nullable=False)  # 'mezcla_lotes', 'categorias_permitidas', 'items_permitidos', 'capacidad'
-    configuracion = Column(JSON, default=dict, nullable=False)
+    configuracion = Column(JSONDocument, default=dict, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

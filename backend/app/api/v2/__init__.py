@@ -18,6 +18,8 @@ from app.modules.picking import router as picking_router
 from app.api.v2.layout import router as layout_router
 from app.api.v2.demo import router as demo_router
 from app.integraciones import router as integraciones_router
+from app.api.v2.usuarios import router as usuarios_router
+from app.api.v2.roles import router as roles_router
 
 api_v2_router = APIRouter(prefix="/api/v2")
 
@@ -39,3 +41,5 @@ api_v2_router.include_router(picking_router)
 api_v2_router.include_router(layout_router)
 api_v2_router.include_router(demo_router)
 api_v2_router.include_router(integraciones_router)
+api_v2_router.include_router(usuarios_router)
+api_v2_router.include_router(roles_router)

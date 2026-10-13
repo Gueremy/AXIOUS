@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.dependencies_v2 import TenantContext, get_current_tenant, require_permission
 from app.core.modules.registry import require_module_enabled
+from app.core.site_access import allowed_location_ids
 from app.database import get_db
 from app.modules.importacion.models import ImportacionJob, Inconsistencia, MappingProfile
 from app.modules.importacion.schemas import (
@@ -24,7 +25,8 @@ from app.modules.importacion.services.parser_excel import parsear_excel
 from app.schemas.v2.common import PaginatedResponse
 
 router = APIRouter(prefix="/importacion", tags=["V2 - Importación y Conciliación ERP/WMS"],
-                   dependencies=[Depends(require_module_enabled("importacion"))])
+                   dependencies=[Depends(require_module_enabled("importacion")),
+                                 Depends(require_permission("reporte:export"))])
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 
@@ -148,6 +150,8 @@ async def conciliar_archivo_externo(
     else:
         # Mapeo por defecto según nombres estándar
         mapeo_dict = {
+            "codigo_sitio": "SITIO",
+            "codigo_zona": "ZONA",
             "codigo_ubicacion": "POSICION",
             "codigo_item": "SKU",
             "numero_lote": "LOTE",
@@ -201,13 +205,16 @@ async def listar_jobs_importacion(
     db: AsyncSession = Depends(get_db),
 ):
     """Lista historial paginado de ejecuciones de importación y conciliación."""
-    stmt_total = select(func.count(ImportacionJob.id)).where(ImportacionJob.id_organizacion == tenant.id_organizacion)
+    base = [ImportacionJob.id_organizacion == tenant.id_organizacion]
+    if tenant.sitios_permitidos is not None:
+        base.append(ImportacionJob.id_usuario == tenant.usuario.id)
+    stmt_total = select(func.count(ImportacionJob.id)).where(*base)
     total = (await db.execute(stmt_total)).scalar_one()
 
     offset = (page - 1) * page_size
     stmt_items = (
         select(ImportacionJob)
-        .where(ImportacionJob.id_organizacion == tenant.id_organizacion)
+        .where(*base)
         .order_by(ImportacionJob.fecha_inicio.desc())
         .offset(offset)
         .limit(page_size)
@@ -234,6 +241,8 @@ async def consultar_inconsistencias_job(
         ImportacionJob.id == id,
         ImportacionJob.id_organizacion == tenant.id_organizacion,
     )
+    if tenant.sitios_permitidos is not None:
+        stmt_job = stmt_job.where(ImportacionJob.id_usuario == tenant.usuario.id)
     job = (await db.execute(stmt_job)).scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job de importación no encontrado")
@@ -246,5 +255,7 @@ async def consultar_inconsistencias_job(
         )
         .order_by(Inconsistencia.fila_origen.asc())
     )
+    if tenant.sitios_permitidos is not None:
+        stmt_inc = stmt_inc.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
     res = await db.execute(stmt_inc)
     return res.scalars().all()

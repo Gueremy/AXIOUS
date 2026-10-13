@@ -24,12 +24,16 @@ class MappingService:
         col_item = mapeo.get("codigo_item")
         col_cantidad = mapeo.get("cantidad")
         col_lote = mapeo.get("numero_lote")
+        col_sitio = mapeo.get("codigo_sitio")
+        col_zona = mapeo.get("codigo_zona")
 
         filas_normalizadas = []
         for idx, fila in enumerate(filas_crudas, start=2):  # start=2 para reflejar número de fila con cabecera en fila 1
             codigo_ubi = str(fila.get(col_ubicacion)).strip() if col_ubicacion and fila.get(col_ubicacion) is not None else None
             codigo_item = str(fila.get(col_item)).strip() if col_item and fila.get(col_item) is not None else None
             num_lote = str(fila.get(col_lote)).strip() if col_lote and fila.get(col_lote) is not None else None
+            codigo_sitio = str(fila.get(col_sitio)).strip() if col_sitio and fila.get(col_sitio) is not None else None
+            codigo_zona = str(fila.get(col_zona)).strip() if col_zona and fila.get(col_zona) is not None else None
 
             # Parsear cantidad numérica
             val_cant = fila.get(col_cantidad)
@@ -47,6 +51,8 @@ class MappingService:
             filas_normalizadas.append({
                 "fila": idx,
                 "codigo_ubicacion": codigo_ubi,
+                "codigo_sitio": codigo_sitio,
+                "codigo_zona": codigo_zona,
                 "codigo_item": codigo_item,
                 "numero_lote": num_lote,
                 "cantidad": cantidad,

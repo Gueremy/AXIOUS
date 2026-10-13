@@ -12,6 +12,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class ReglaAlertaV2(Base):
@@ -30,7 +31,7 @@ class ReglaAlertaV2(Base):
     codigo = Column(String(50), nullable=False)  # ej: 'capacidad_critica', 'vencimiento_7_dias'
     nombre = Column(String(100), nullable=False)
     tipo = Column(String(50), nullable=False)    # 'capacidad', 'vencimiento', 'stock', 'inactividad', 'conciliacion'
-    configuracion = Column(JSON, nullable=False, default=dict)  # ej: {"umbral_porcentaje": 90.0}
+    configuracion = Column(JSONDocument, nullable=False, default=dict)  # ej: {"umbral_porcentaje": 90.0}
     severidad = Column(String(20), nullable=False, default="aviso")  # 'critica', 'aviso', 'informativa'
     habilitada = Column(Boolean, nullable=False, default=True)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -65,7 +66,7 @@ class AlertaV2(Base):
     fecha_generacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fecha_revision = Column(DateTime(timezone=True), nullable=True)
     fecha_resolucion = Column(DateTime(timezone=True), nullable=True)
-    metadatos = Column(JSON, nullable=False, default=dict)
+    metadatos = Column(JSONDocument, nullable=False, default=dict)
 
     regla = relationship("ReglaAlertaV2", back_populates="alertas", lazy="raise")
     organizacion = relationship("Organizacion", lazy="raise")

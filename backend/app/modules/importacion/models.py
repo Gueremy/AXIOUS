@@ -14,6 +14,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class MappingProfile(Base):
@@ -31,7 +32,7 @@ class MappingProfile(Base):
     id_organizacion = Column(String(36), ForeignKey("v2_organizacion.id", ondelete="CASCADE"), nullable=False, index=True)
     nombre = Column(String(100), nullable=False)
     descripcion = Column(String(255), nullable=True)
-    mapeo = Column(JSON, nullable=False)  # ej: {"codigo_ubicacion": "POS", "codigo_item": "SKU", "cantidad": "QTY", "numero_lote": "LOT"}
+    mapeo = Column(JSONDocument, nullable=False)  # ej: {"codigo_ubicacion": "POS", "codigo_item": "SKU", "cantidad": "QTY", "numero_lote": "LOT"}
     activo = Column(Boolean, nullable=False, default=True)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fecha_actualizacion = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -58,7 +59,7 @@ class ImportacionJob(Base):
     registros_inconsistentes = Column(Integer, nullable=False, default=0)
     fecha_inicio = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fecha_fin = Column(DateTime(timezone=True), nullable=True)
-    resumen = Column(JSON, nullable=False, default=dict)
+    resumen = Column(JSONDocument, nullable=False, default=dict)
 
     organizacion = relationship("Organizacion", lazy="raise")
     mapping_profile = relationship("MappingProfile", back_populates="jobs", lazy="raise")
@@ -76,6 +77,7 @@ class Inconsistencia(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     id_organizacion = Column(String(36), ForeignKey("v2_organizacion.id", ondelete="CASCADE"), nullable=False, index=True)
     id_importacion_job = Column(String(36), ForeignKey("v2_importacion_job.id", ondelete="CASCADE"), nullable=False, index=True)
+    id_ubicacion = Column(String(36), ForeignKey("v2_ubicacion.id", ondelete="SET NULL"), nullable=True, index=True)
     fila_origen = Column(Integer, nullable=False)
     tipo_inconsistencia = Column(String(50), nullable=False)  # 'ubicacion_inexistente', 'sobrecapacidad', 'mezcla_lotes', 'item_incompatible', 'datos_incompletos'
     motivo = Column(String(500), nullable=False)
@@ -83,7 +85,7 @@ class Inconsistencia(Base):
     codigo_item = Column(String(50), nullable=True)
     numero_lote = Column(String(50), nullable=True)
     cantidad_externa = Column(Numeric(precision=12, scale=4), nullable=True)
-    datos_crudos = Column(JSON, nullable=False, default=dict)
+    datos_crudos = Column(JSONDocument, nullable=False, default=dict)
     resuelto = Column(Boolean, nullable=False, default=False)
     fecha_deteccion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

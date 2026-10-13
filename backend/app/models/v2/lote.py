@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class Lote(Base):
@@ -15,7 +16,7 @@ class Lote(Base):
     numero_lote = Column(String(100), nullable=False)
     fecha_fabricacion = Column(DateTime(timezone=True), nullable=True)
     fecha_vencimiento = Column(DateTime(timezone=True), nullable=True, index=True)
-    atributos = Column(JSON, default=dict, nullable=False)
+    atributos = Column(JSONDocument, default=dict, nullable=False)
     estado = Column(String(30), default="activo", nullable=False)
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

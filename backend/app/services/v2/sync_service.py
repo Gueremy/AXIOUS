@@ -82,6 +82,8 @@ class OfflineSyncService:
                     id_mov = mov_creado.id if mov_creado else None
 
                 await db.commit()
+                if mov_creado is not None:
+                    await MovimientoService.publicar_movimiento_confirmado(db, tenant, mov_creado)
 
                 resultados.append(
                     SyncMovimientoResultado(

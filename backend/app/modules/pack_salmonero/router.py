@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.site_access import scope_movement_query
 from app.core.modules.registry import ModuleRegistry
 from app.database import get_db
 from app.models.v2.item import Item
@@ -26,14 +27,16 @@ async def obtener_reporte_sernapesca(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="El módulo 'pack_salmonero' no está habilitado para su organización.",
         )
+    if not tenant.tiene_permiso("stock:read"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
 
     stmt = (
         select(MovimientoV2, Item.codigo)
         .join(Item, MovimientoV2.id_item == Item.id)
         .where(MovimientoV2.id_organizacion == tenant.id_organizacion)
         .order_by(MovimientoV2.fecha_hora.desc())
-        .limit(500)
     )
+    stmt = scope_movement_query(stmt, tenant, MovimientoV2).limit(500)
     res = await db.execute(stmt)
 
     registros = []

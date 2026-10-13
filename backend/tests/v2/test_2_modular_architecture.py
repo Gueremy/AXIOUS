@@ -43,6 +43,20 @@ async def test_modulos_apagados_bloquean_sus_rutas(client: AsyncClient, db, setu
     assert [picking.status_code, mappings.status_code, sync.status_code] == [403, 403, 403]
 
 
+@pytest.mark.asyncio
+async def test_estrategia_picking_por_organizacion(client: AsyncClient, setup_modular_fixture):
+    ctx = setup_modular_fixture
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+    changed = await client.patch("/api/v2/picking/estrategia", headers=headers, json={"estrategia": "lifo"})
+    assert changed.status_code == 200
+    response = await client.get(
+        f"/api/v2/picking/sugerir?id_item={ctx['item_harina'].id}&cantidad=50", headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["estrategia"] == "lifo"
+    assert response.json()["sugerencias"][0]["id_lote"] == ctx["lote_vence_10d"].id
+
+
 @pytest.fixture
 async def setup_modular_fixture(db):
     """Crea organizaciones con ítems y lotes con distintas fechas de vencimiento y creación."""

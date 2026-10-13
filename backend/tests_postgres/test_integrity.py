@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.core.config import settings
@@ -22,6 +22,21 @@ from app.services.v2.movimiento_service import MovimientoService
 def _require_test_postgres():
     if "postgresql+asyncpg" not in settings.DATABASE_URL or "axious_v2_completion_test" not in settings.DATABASE_URL:
         pytest.skip("Requiere DATABASE_URL de PostgreSQL axious_v2_completion_test")
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_v2_documentos_jsonb_y_migracion_final():
+    _require_test_postgres()
+    async with AsyncSessionLocal() as db:
+        revision = (await db.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
+        assert revision == "b4c5d6e7f809"
+        columns = (await db.execute(text("""
+            SELECT table_name, column_name, data_type FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name LIKE 'v2_%'
+              AND column_name IN ('atributos', 'configuracion', 'layout', 'datos_crudos', 'mapeo')
+        """))).all()
+        assert len(columns) >= 10
+        assert all(data_type == "jsonb" for _, _, data_type in columns)
 
 
 @pytest.mark.asyncio(loop_scope="session")
