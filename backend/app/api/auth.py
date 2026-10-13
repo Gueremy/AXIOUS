@@ -135,6 +135,8 @@ async def login(
 
     # 6. Generar tokens
     token_data = {"sub": usuario.id, "rol": usuario.rol}
+    if usuario.id_organizacion:
+        token_data["org_id"] = usuario.id_organizacion
     access_token  = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
@@ -195,6 +197,8 @@ async def refresh(
 
     # Generar nuevos tokens
     token_data = {"sub": usuario.id, "rol": usuario.rol}
+    if usuario.id_organizacion:
+        token_data["org_id"] = usuario.id_organizacion
     new_access  = create_access_token(token_data)
     new_refresh = create_refresh_token(token_data)
     await _save_refresh_token(db, new_refresh, usuario.id)

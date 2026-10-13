@@ -17,9 +17,11 @@ from app.models.log_auditoria import LogAuditoria
 from app.models.v2.alerta import AlertaV2, ReglaAlertaV2
 from app.models.v2.lote import Lote
 from app.models.v2.saldo_stock import SaldoStock
+from app.models.v2.sitio import Sitio
 from app.models.v2.ubicacion import Ubicacion
 from app.models.v2.zona import Zona
 from app.schemas.v2.alerta import ReglaAlertaCreate, ReglaAlertaUpdate
+from app.websockets import manager
 
 
 PLANTILLAS_DEFAULT = [
@@ -69,6 +71,27 @@ PLANTILLAS_DEFAULT = [
 
 
 class AlertaServiceV2:
+
+    @staticmethod
+    async def notificar_alertas(db: AsyncSession, id_organizacion: str, alertas: List[AlertaV2]) -> None:
+        """Publica únicamente alertas confirmadas a los sitios del tenant."""
+        if not alertas:
+            return
+        all_sites = None
+        for alerta in alertas:
+            if alerta.id_sitio:
+                destinations = [alerta.id_sitio]
+            else:
+                if all_sites is None:
+                    all_sites = (await db.execute(select(Sitio.id).where(
+                        Sitio.id_organizacion == id_organizacion, Sitio.activo == True,
+                    ))).scalars().all()
+                destinations = all_sites
+            for site_id in destinations:
+                await manager.broadcast_sede(site_id, {
+                    "tipo": "alerta_v2", "id": alerta.id, "id_organizacion": id_organizacion,
+                    "id_sitio": site_id, "titulo": alerta.titulo, "severidad": alerta.severidad,
+                })
 
     @staticmethod
     async def inicializar_plantillas(db: AsyncSession, id_organizacion: str) -> List[ReglaAlertaV2]:

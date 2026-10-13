@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.modules.registry import require_module_enabled
 from app.database import get_db
 from app.modules.importacion.models import ImportacionJob, Inconsistencia, MappingProfile
 from app.modules.importacion.schemas import (
@@ -22,7 +23,9 @@ from app.modules.importacion.services.parser_csv import parsear_csv
 from app.modules.importacion.services.parser_excel import parsear_excel
 from app.schemas.v2.common import PaginatedResponse
 
-router = APIRouter(prefix="/importacion", tags=["V2 - Importación y Conciliación ERP/WMS"])
+router = APIRouter(prefix="/importacion", tags=["V2 - Importación y Conciliación ERP/WMS"],
+                   dependencies=[Depends(require_module_enabled("importacion"))])
+MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 
 # ─── Perfiles de Mapeo Configurables ─────────────────────────────────────────
@@ -120,7 +123,7 @@ async def conciliar_archivo_externo(
     filename = file.filename or "archivo_externo"
     extension = filename.split(".")[-1].lower() if "." in filename else ""
 
-    if extension not in ("csv", "xlsx", "xls"):
+    if extension not in ("csv", "xlsx"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Formato no soportado. Sólo se admiten archivos .csv y .xlsx",
@@ -152,7 +155,10 @@ async def conciliar_archivo_externo(
         }
 
     # 2. Parsear el archivo según extensión
-    contenido = await file.read()
+    contenido = await file.read(MAX_IMPORT_BYTES + 1)
+    if len(contenido) > MAX_IMPORT_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail="El archivo supera el límite de 10 MB")
     if extension == "csv":
         filas_crudas = parsear_csv(contenido)
         tipo_fuente = "csv"

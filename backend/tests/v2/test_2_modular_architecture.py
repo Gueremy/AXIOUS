@@ -22,6 +22,27 @@ from app.models.v2 import (
 )
 
 
+@pytest.mark.asyncio
+async def test_modulos_apagados_bloquean_sus_rutas(client: AsyncClient, db, setup_modular_fixture):
+    ctx = setup_modular_fixture
+    org_id = ctx["org_a"].id
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+
+    for module_id in ("fefo", "importacion", "offline_sync"):
+        await ModuleRegistry.set_module_status(db, org_id, module_id, False)
+
+    picking = await client.get(
+        f"/api/v2/picking/sugerir?id_item={ctx['item_harina'].id}&cantidad=1", headers=headers,
+    )
+    mappings = await client.get("/api/v2/importacion/mapeos", headers=headers)
+    sync = await client.post("/api/v2/movimientos/sync", headers=headers, json={"movimientos": [{
+        "uuid_local": str(uuid.uuid4()), "id_tipo_movimiento": ctx["tipo_ingreso"].id,
+        "id_item": ctx["item_harina"].id, "id_ubicacion_destino": ctx["ubi_1"].id,
+        "cantidad": 1, "unidad_medida": "kg",
+    }]})
+    assert [picking.status_code, mappings.status_code, sync.status_code] == [403, 403, 403]
+
+
 @pytest.fixture
 async def setup_modular_fixture(db):
     """Crea organizaciones con ítems y lotes con distintas fechas de vencimiento y creación."""

@@ -24,13 +24,15 @@ class SyncBatchRequest(BaseModel):
 
 class SyncMovimientoResultado(BaseModel):
     uuid_local: str
-    estado: str  # 'sincronizado', 'duplicado', 'rechazado'
+    estado: str  # 'sincronizado', 'pendiente', 'duplicado', 'rechazado'
     id_movimiento: Optional[str] = None
+    id_solicitud: Optional[str] = None
     motivo: Optional[str] = None
 
 
 class SyncBatchResponse(BaseModel):
     total: int
     sincronizados: int
+    pendientes: int = 0
     rechazados: int
     resultados: List[SyncMovimientoResultado]

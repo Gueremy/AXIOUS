@@ -31,6 +31,7 @@ class OfflineSyncService:
     ) -> SyncBatchResponse:
         resultados: List[SyncMovimientoResultado] = []
         sincronizados = 0
+        pendientes = 0
         rechazados = 0
 
         for item in batch.movimientos:
@@ -78,19 +79,23 @@ class OfflineSyncService:
                         MovimientoV2.uuid_local == item.uuid_local,
                     )
                     mov_creado = (await db.execute(stmt_mov)).scalar_one_or_none()
-                    id_mov = mov_creado.id if mov_creado else solicitud.id
+                    id_mov = mov_creado.id if mov_creado else None
 
                 await db.commit()
 
                 resultados.append(
                     SyncMovimientoResultado(
                         uuid_local=item.uuid_local,
-                        estado="sincronizado",
+                        estado="sincronizado" if id_mov else "pendiente",
                         id_movimiento=id_mov,
+                        id_solicitud=solicitud.id,
                         motivo=None,
                     )
                 )
-                sincronizados += 1
+                if id_mov:
+                    sincronizados += 1
+                else:
+                    pendientes += 1
 
             except HTTPException as exc:
                 resultados.append(
@@ -116,6 +121,7 @@ class OfflineSyncService:
         return SyncBatchResponse(
             total=len(batch.movimientos),
             sincronizados=sincronizados,
+            pendientes=pendientes,
             rechazados=rechazados,
             resultados=resultados,
         )

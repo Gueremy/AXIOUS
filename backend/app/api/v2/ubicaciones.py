@@ -31,6 +31,8 @@ async def listar_ubicaciones(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
 
     stmt = select(Ubicacion).where(Ubicacion.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.join(Zona, Ubicacion.id_zona == Zona.id).where(Zona.id_sitio.in_(tenant.sitios_permitidos))
     if id_zona:
         stmt = stmt.where(Ubicacion.id_zona == id_zona)
     if estado:
@@ -64,6 +66,7 @@ async def crear_ubicacion(
     zona = (await db.execute(stmt_zona)).scalar_one_or_none()
     if not zona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona no encontrada o ajena a la organización")
+    tenant.exigir_acceso_sitio(zona.id_sitio)
 
     # 2. Validar unicidad de código en la zona
     stmt_dup = select(Ubicacion).where(Ubicacion.id_zona == data.id_zona, Ubicacion.codigo == data.codigo)
@@ -114,6 +117,9 @@ async def obtener_ubicacion(
     ubi = (await db.execute(stmt)).scalar_one_or_none()
     if not ubi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ubicación no encontrada")
+    if tenant.sitios_permitidos is not None:
+        from app.core.site_access import require_zone_access
+        await require_zone_access(db, tenant, ubi.id_zona)
     return ubi
 
 
@@ -132,6 +138,9 @@ async def actualizar_ubicacion(
     ubi = (await db.execute(stmt)).scalar_one_or_none()
     if not ubi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ubicación no encontrada")
+    if tenant.sitios_permitidos is not None:
+        from app.core.site_access import require_zone_access
+        await require_zone_access(db, tenant, ubi.id_zona)
 
     update_dict = data.model_dump(exclude_unset=True)
     for field, val in update_dict.items():

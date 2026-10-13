@@ -31,6 +31,8 @@ async def listar_zonas(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
 
     stmt = select(Zona).where(Zona.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Zona.id_sitio.in_(tenant.sitios_permitidos))
     if id_sitio:
         stmt = stmt.where(Zona.id_sitio == id_sitio)
     if id_zona_padre is not None:
@@ -64,6 +66,7 @@ async def crear_zona(
     sitio = (await db.execute(stmt_sitio)).scalar_one_or_none()
     if not sitio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sitio no encontrado o ajeno a la organización")
+    tenant.exigir_acceso_sitio(sitio.id)
 
     # 2. Si tiene zona padre, validar que pertenezca al mismo sitio
     if data.id_zona_padre:
@@ -119,6 +122,7 @@ async def obtener_zona(
     zona = (await db.execute(stmt)).scalar_one_or_none()
     if not zona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona no encontrada")
+    tenant.exigir_acceso_sitio(zona.id_sitio)
     return zona
 
 
@@ -137,6 +141,7 @@ async def obtener_subzonas(
     padre = (await db.execute(stmt_padre)).scalar_one_or_none()
     if not padre:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona no encontrada")
+    tenant.exigir_acceso_sitio(padre.id_sitio)
 
     stmt = select(Zona).where(Zona.id_zona_padre == id_zona, Zona.id_organizacion == tenant.id_organizacion).order_by(Zona.codigo.asc())
     res = await db.execute(stmt)
@@ -158,6 +163,7 @@ async def actualizar_zona(
     zona = (await db.execute(stmt)).scalar_one_or_none()
     if not zona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona no encontrada")
+    tenant.exigir_acceso_sitio(zona.id_sitio)
 
     update_dict = data.model_dump(exclude_unset=True)
     for field, val in update_dict.items():

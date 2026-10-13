@@ -29,6 +29,8 @@ async def listar_sitios(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
 
     stmt = select(Sitio).where(Sitio.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Sitio.id.in_(tenant.sitios_permitidos))
     if tipo:
         stmt = stmt.where(Sitio.tipo == tipo)
     if activo is not None:
@@ -127,6 +129,7 @@ async def actualizar_sitio(
     sitio = (await db.execute(stmt)).scalar_one_or_none()
     if not sitio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sitio no encontrado")
+    tenant.exigir_acceso_sitio(sitio.id)
 
     update_dict = data.model_dump(exclude_unset=True)
     if "atributos" in update_dict and update_dict["atributos"] is not None:

@@ -14,12 +14,14 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.core.config import settings
 from app.database import AsyncSessionLocal
 from app.models.refresh_token import RefreshToken
+from app.models.v2.organizacion import Organizacion
 from app.services.alertas import evaluar_alertas_batch
+from app.services.v2.alerta_service import AlertaServiceV2
 from app.core.logger import log_job_scheduler, log_job_scheduler_error
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,22 @@ async def job_periodic_checks():
             error=str(e),
         )
         logger.error(f"🔄 Job periódico ERROR: {e}", exc_info=True)
+
+    await job_v2_alerts()
+
+
+async def job_v2_alerts():
+    """Evalúa reglas configurables por organización y avisa tras confirmar cada lote."""
+    async with AsyncSessionLocal() as db:
+        org_ids = (await db.execute(select(Organizacion.id).where(Organizacion.activo == True))).scalars().all()
+        for org_id in org_ids:
+            try:
+                nuevas = await AlertaServiceV2.evaluar_alertas(db, org_id)
+                await db.commit()
+                await AlertaServiceV2.notificar_alertas(db, org_id, nuevas)
+            except Exception:
+                await db.rollback()
+                logger.exception("Error al evaluar alertas v2 de la organización %s", org_id)
 
 
 async def job_cleanup_tokens():

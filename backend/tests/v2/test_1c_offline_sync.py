@@ -15,7 +15,7 @@ from app.core.security import create_access_token
 from app.models.usuario import Usuario
 from app.models.v2 import (
     Organizacion, Sitio, Zona, Ubicacion,
-    Item, Lote, TipoMovimiento, SaldoStock
+    Item, Lote, TipoMovimiento, SaldoStock, UsuarioSitio
 )
 from sqlalchemy import select
 
@@ -43,6 +43,8 @@ async def setup_sync_fixture(db):
 
     sitio_a = Sitio(id=str(uuid.uuid4()), id_organizacion=org_a.id, codigo="SIT-A", nombre="Bodega Central A", tipo="bodega")
     db.add(sitio_a)
+    await db.flush()
+    db.add(UsuarioSitio(id_usuario=user_a.id, id_sitio=sitio_a.id))
     await db.flush()
 
     zona_a = Zona(id=str(uuid.uuid4()), id_organizacion=org_a.id, id_sitio=sitio_a.id, codigo="ZON-A", nombre="Zona A", tipo="sector")

@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
+from app.core.site_access import require_location_access
 from app.models.log_auditoria import LogAuditoria
 from app.models.v2.item import Item
 from app.models.v2.lote import Lote
@@ -50,9 +51,9 @@ class MovimientoService:
 
         # Fase 2D: Si el pack salmonero está activo para la organización, exigir campos regulatorios
         from app.core.modules.registry import ModuleRegistry
-        if await ModuleRegistry.is_enabled(db, tenant.id_organizacion, "pack_salmonero"):
-            from app.modules.pack_salmonero.validator import validar_atributos_salmoneros
-            validar_atributos_salmoneros(atributos or {})
+        await ModuleRegistry.validate_movement_attributes(
+            db, tenant.id_organizacion, "pack_salmonero", atributos or {},
+        )
 
         # 1. Validar Tipo de Movimiento
         stmt_tipo = select(TipoMovimiento).where(
@@ -98,6 +99,7 @@ class MovimientoService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El tipo de movimiento exige ubicación de destino")
 
         if id_ubicacion_origen:
+            await require_location_access(db, tenant, id_ubicacion_origen)
             stmt_orig = select(Ubicacion).where(
                 Ubicacion.id == id_ubicacion_origen,
                 Ubicacion.id_organizacion == tenant.id_organizacion,
@@ -108,6 +110,7 @@ class MovimientoService:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ubicación de origen no encontrada o inactiva")
 
         if id_ubicacion_destino:
+            await require_location_access(db, tenant, id_ubicacion_destino)
             stmt_dest = select(Ubicacion).where(
                 Ubicacion.id == id_ubicacion_destino,
                 Ubicacion.id_organizacion == tenant.id_organizacion,
@@ -169,10 +172,13 @@ class MovimientoService:
         stmt = select(SolicitudMovimiento).where(
             SolicitudMovimiento.id == id_solicitud,
             SolicitudMovimiento.id_organizacion == tenant.id_organizacion,
-        )
+        ).with_for_update()
         solicitud = (await db.execute(stmt)).scalar_one_or_none()
         if not solicitud:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud de movimiento no encontrada")
+        for location_id in (solicitud.id_ubicacion_origen, solicitud.id_ubicacion_destino):
+            if location_id:
+                await require_location_access(db, tenant, location_id)
 
         if solicitud.estado != "pendiente":
             raise HTTPException(
@@ -180,14 +186,16 @@ class MovimientoService:
                 detail=f"La solicitud ya se encuentra en estado '{solicitud.estado}'",
             )
 
+        if tenant.rol_codigo == "jefe_bodega" and solicitud.id_usuario_solicitante == tenant.usuario.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puede aprobar un movimiento propio")
+
         stmt_tipo = select(TipoMovimiento).where(TipoMovimiento.id == solicitud.id_tipo_movimiento)
         tipo = (await db.execute(stmt_tipo)).scalar_one()
-
-        movimiento = await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
 
         solicitud.estado = "aprobada"
         solicitud.id_usuario_aprobador = tenant.usuario.id
         solicitud.fecha_resolucion = func.now()
+        movimiento = await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
 
         await db.commit()
         await db.refresh(movimiento)
@@ -204,10 +212,13 @@ class MovimientoService:
         stmt = select(SolicitudMovimiento).where(
             SolicitudMovimiento.id == id_solicitud,
             SolicitudMovimiento.id_organizacion == tenant.id_organizacion,
-        )
+        ).with_for_update()
         solicitud = (await db.execute(stmt)).scalar_one_or_none()
         if not solicitud:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud de movimiento no encontrada")
+        for location_id in (solicitud.id_ubicacion_origen, solicitud.id_ubicacion_destino):
+            if location_id:
+                await require_location_access(db, tenant, location_id)
 
         if solicitud.estado != "pendiente":
             raise HTTPException(

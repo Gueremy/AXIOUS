@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy import (
     Column, String, DateTime, ForeignKey,
-    Numeric, UniqueConstraint, CheckConstraint
+    Numeric, UniqueConstraint, CheckConstraint, Index
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -23,6 +23,8 @@ class SaldoStock(Base):
 
     __table_args__ = (
         UniqueConstraint("id_ubicacion", "id_item", "id_lote", name="uq_saldo_ubicacion_item_lote"),
+        Index("uq_saldo_sin_lote", "id_ubicacion", "id_item", unique=True,
+              postgresql_where=id_lote.is_(None), sqlite_where=id_lote.is_(None)),
         CheckConstraint("cantidad >= 0", name="chk_saldo_cantidad_no_negativa"),
     )
 

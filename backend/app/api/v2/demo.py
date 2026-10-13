@@ -1,8 +1,9 @@
 from typing import Any, Dict
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.config import settings
 from app.database import get_db
 from app.services.v2.demo_service import DemoGeneratorService
 
@@ -19,5 +20,10 @@ async def sembrar_datos_demo(
     """
     Puebla un dataset ficticio reproducible para demostraciones y pruebas del sistema.
     """
+    if not tenant.tiene_permiso("rbac:manage"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente para generar datos demo")
+    if not en_organizacion_actual and settings.ENVIRONMENT == "production":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Creación de organizaciones demo deshabilitada")
     org_id = tenant.id_organizacion if en_organizacion_actual else None
-    return await DemoGeneratorService.generar_demo(db, preset=preset, id_organizacion_existente=org_id)
+    return await DemoGeneratorService.generar_demo(db, preset=preset, id_organizacion_existente=org_id,
+                                                   id_usuario_demo=tenant.usuario.id if org_id else None)

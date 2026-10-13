@@ -9,9 +9,10 @@ Punto de entrada de la aplicación FastAPI.
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError
+from sqlalchemy import select
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -21,8 +22,11 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logger import log_sistema_iniciado, log_sistema_detenido
 from app.core.security import verify_token
-from app.database import engine
+from app.core.dependencies_v2 import get_current_tenant
+from app.database import AsyncSessionLocal, engine
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
+from app.models.usuario import Usuario
+from app.models.v2.sitio import Sitio
 from app.websockets import manager
 from app.scheduler import scheduler
 
@@ -82,10 +86,28 @@ async def websocket_alertas(websocket: WebSocket, id_sede: str):
         await websocket.close(code=4001, reason="Token requerido")
         return
     try:
-        verify_token(token, expected_type="access")
+        payload = verify_token(token, expected_type="access")
     except JWTError:
         await websocket.close(code=4001, reason="Token inválido o expirado")
         return
+
+    async with AsyncSessionLocal() as db:
+        usuario = (await db.execute(select(Usuario).where(Usuario.id == payload.get("sub")))).scalar_one_or_none()
+        if not usuario or not usuario.activo:
+            await websocket.close(code=4003, reason="Usuario sin acceso")
+            return
+        sitio_v2 = (await db.execute(select(Sitio).where(Sitio.id == id_sede))).scalar_one_or_none()
+        if sitio_v2:
+            try:
+                tenant = await get_current_tenant(token=token, db=db)
+                tenant.validar_pertenencia_org(sitio_v2.id_organizacion)
+                tenant.exigir_acceso_sitio(sitio_v2.id)
+            except HTTPException:
+                await websocket.close(code=4003, reason="Sitio sin acceso")
+                return
+        elif usuario.id_sede != id_sede:
+            await websocket.close(code=4003, reason="Sede sin acceso")
+            return
 
     await manager.connect(websocket, id_sede)
     try:

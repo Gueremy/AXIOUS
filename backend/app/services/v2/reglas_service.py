@@ -35,6 +35,11 @@ class ReglasUbicacionService:
         Evalúa de forma centralizada todas las reglas aplicables antes de permitir un ingreso o traslado.
         Lanza HTTPException con motivo estructurado si alguna regla no se cumple.
         """
+        if ubi_dest.unidad_capacidad != item.unidad_medida:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unidad de capacidad incompatible: ubicación usa '{ubi_dest.unidad_capacidad}' e ítem usa '{item.unidad_medida}'",
+            )
         # 1. Validación de Capacidad
         nueva_ocupacion = ubi_dest.ocupacion_actual + cantidad
         if nueva_ocupacion > ubi_dest.capacidad_maxima:

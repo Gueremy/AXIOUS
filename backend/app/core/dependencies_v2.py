@@ -98,6 +98,10 @@ class TenantContext:
             return True
         return id_sitio in self.sitios_permitidos
 
+    def exigir_acceso_sitio(self, id_sitio: str) -> None:
+        if not self.puede_acceder_sitio(id_sitio):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene acceso a este sitio")
+
 
 async def get_current_tenant(
     token: str = Depends(oauth2_scheme),
@@ -133,8 +137,10 @@ async def get_current_tenant(
             detail="Cuenta de usuario desactivada.",
         )
 
-    # 2. Cargar organización (desde usuario o token)
-    id_org = usuario.id_organizacion or payload.get("org_id")
+    # 2. La pertenencia persistida prevalece; un claim obsoleto nunca cambia el tenant.
+    id_org = usuario.id_organizacion
+    if payload.get("org_id") and payload["org_id"] != id_org:
+        raise credentials_exc
     if not id_org:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -165,19 +171,20 @@ async def get_current_tenant(
         stmt_rol = select(Rol).where(Rol.id == usuario.id_rol_v2).options(selectinload(Rol.permisos))
         res_rol = await db.execute(stmt_rol)
         rol_obj = res_rol.scalar_one_or_none()
-        if rol_obj and rol_obj.activo:
-            rol_codigo = rol_obj.codigo
-            permisos = {p.codigo for p in rol_obj.permisos}
+        if not rol_obj or not rol_obj.activo or rol_obj.id_organizacion != id_org:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Rol no disponible para esta organización")
+        rol_codigo = rol_obj.codigo
+        permisos = {p.codigo for p in rol_obj.permisos}
 
     # Si no tiene permisos asignados explícitos, usar plantilla base del rol
-    if not permisos and rol_codigo in PLANTILLAS_PERMISOS:
+    if not usuario.id_rol_v2 and rol_codigo in PLANTILLAS_PERMISOS:
         permisos = set(PLANTILLAS_PERMISOS[rol_codigo])
 
     # 4. Determinar restricciones de sitio
     stmt_sitios = select(UsuarioSitio.id_sitio).where(UsuarioSitio.id_usuario == usuario.id)
     res_sitios = await db.execute(stmt_sitios)
     sitios_asignados = set(res_sitios.scalars().all())
-    sitios_permitidos = sitios_asignados if sitios_asignados else None
+    sitios_permitidos = None if rol_codigo in ("super_admin", "gerencia") else sitios_asignados
 
     return TenantContext(
         usuario=usuario,

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.site_access import require_zone_access
 from app.database import get_db
 from app.models.log_auditoria import LogAuditoria
 from app.models.v2.sitio import Sitio
@@ -43,6 +44,9 @@ async def obtener_arbol_layout_sitio(
     sitio = (await db.execute(stmt_s)).scalar_one_or_none()
     if not sitio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sitio no encontrado")
+    if not tenant.tiene_permiso("sitio:read"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
+    tenant.exigir_acceso_sitio(sitio.id)
 
     # Cargar todas las zonas del sitio
     stmt_z = select(Zona).where(
@@ -118,6 +122,8 @@ async def actualizar_layout_zona(
     db: AsyncSession = Depends(get_db),
 ):
     """Actualiza la posición, rotación o dimensiones espaciales de una zona."""
+    if not tenant.tiene_permiso("zona:write"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
     stmt = select(Zona).where(
         Zona.id == id_zona,
         Zona.id_organizacion == tenant.id_organizacion,
@@ -125,6 +131,7 @@ async def actualizar_layout_zona(
     zona = (await db.execute(stmt)).scalar_one_or_none()
     if not zona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona no encontrada")
+    tenant.exigir_acceso_sitio(zona.id_sitio)
 
     zona.layout = payload.layout
     db.add(
@@ -149,6 +156,8 @@ async def actualizar_layout_ubicacion(
     db: AsyncSession = Depends(get_db),
 ):
     """Actualiza la posición 2D/3D o dimensiones de una ubicación individual."""
+    if not tenant.tiene_permiso("ubicacion:write"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
     stmt = select(Ubicacion).where(
         Ubicacion.id == id_ubicacion,
         Ubicacion.id_organizacion == tenant.id_organizacion,
@@ -156,6 +165,7 @@ async def actualizar_layout_ubicacion(
     ubi = (await db.execute(stmt)).scalar_one_or_none()
     if not ubi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ubicación no encontrada")
+    await require_zone_access(db, tenant, ubi.id_zona)
 
     ubi.layout = payload.layout
     db.add(
@@ -182,6 +192,8 @@ async def crear_ubicaciones_batch(
     Creación masiva de ubicaciones dentro de una zona para el editor visual
     (por ejemplo, racks completos estructurados por fila, nivel y compartimento).
     """
+    if not tenant.tiene_permiso("ubicacion:write"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente")
     stmt_z = select(Zona).where(
         Zona.id == payload.id_zona,
         Zona.id_organizacion == tenant.id_organizacion,
@@ -189,6 +201,7 @@ async def crear_ubicaciones_batch(
     zona = (await db.execute(stmt_z)).scalar_one_or_none()
     if not zona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona destino no encontrada")
+    tenant.exigir_acceso_sitio(zona.id_sitio)
 
     nuevas_ubis = []
     for item in payload.ubicaciones:

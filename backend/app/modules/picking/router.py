@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.modules.registry import require_module_enabled
 from app.database import get_db
 from app.modules.picking.schemas import PickingPlanResponse
 from app.modules.picking.service import PickingService
 
-router = APIRouter(prefix="/picking", tags=["V2 - Picking (FEFO / FIFO / LIFO)"])
+router = APIRouter(prefix="/picking", tags=["V2 - Picking (FEFO / FIFO / LIFO)"],
+                   dependencies=[Depends(require_module_enabled("fefo"))])
 
 
 @router.get("/sugerir", response_model=PickingPlanResponse)

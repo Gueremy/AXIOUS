@@ -4,10 +4,13 @@ Catálogo central de módulos y feature flags por organización (Fase 2C).
 Permite activar/desactivar módulos por tenant y verificar disponibilidad.
 """
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends, HTTPException, status
 
+from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.database import get_db
 from app.models.v2.modulo import ModuloOrganizacion
 
 
@@ -63,6 +66,20 @@ MODULOS_CATALOGO: Dict[str, ModuleManifest] = {
 
 
 class ModuleRegistry:
+    _movement_validators: Dict[str, Callable[[Dict[str, Any]], None]] = {}
+
+    @classmethod
+    def register_movement_validator(cls, id_modulo: str, validator: Callable[[Dict[str, Any]], None]) -> None:
+        cls._movement_validators[id_modulo] = validator
+
+    @classmethod
+    async def validate_movement_attributes(cls, db: AsyncSession, id_organizacion: str,
+                                           id_modulo: str, atributos: Dict[str, Any]) -> None:
+        if await cls.is_enabled(db, id_organizacion, id_modulo):
+            validator = cls._movement_validators.get(id_modulo)
+            if validator is None:
+                raise RuntimeError(f"Validador del módulo '{id_modulo}' no registrado")
+            validator(atributos)
 
     @staticmethod
     def get_catalog() -> List[ModuleManifest]:
@@ -118,3 +135,14 @@ class ModuleRegistry:
         await db.commit()
         await db.refresh(mod_org)
         return mod_org
+
+
+def require_module_enabled(id_modulo: str):
+    """Bloquea una ruta cuando el módulo está apagado para el tenant actual."""
+    async def check(
+        tenant: TenantContext = Depends(get_current_tenant),
+        db: AsyncSession = Depends(get_db),
+    ) -> None:
+        if not await ModuleRegistry.is_enabled(db, tenant.id_organizacion, id_modulo):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Módulo '{id_modulo}' deshabilitado")
+    return check

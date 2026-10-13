@@ -1,13 +1,13 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 from pydantic import BaseModel, Field
 
 
 class TipoMovimientoCreate(BaseModel):
     codigo: str = Field(..., max_length=50)
     nombre: str = Field(..., max_length=100)
-    efecto_stock: str = Field(..., max_length=20)  # 'entrada', 'salida', 'traslado', 'sin_efecto'
+    efecto_stock: Literal["entrada", "salida", "traslado", "sin_efecto"]
     requiere_origen: bool = False
     requiere_destino: bool = False
     requiere_aprobacion: bool = False

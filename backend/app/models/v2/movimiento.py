@@ -40,6 +40,7 @@ class MovimientoV2(Base):
 
     __table_args__ = (
         UniqueConstraint("id_organizacion", "uuid_local", name="uq_mov_v2_org_uuid_local"),
+        UniqueConstraint("id_solicitud", name="uq_mov_v2_solicitud"),
     )
 
     # Relaciones

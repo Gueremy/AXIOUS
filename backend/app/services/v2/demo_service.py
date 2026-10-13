@@ -33,15 +33,24 @@ class DemoGeneratorService:
         db: AsyncSession,
         preset: str = "salmonera",
         id_organizacion_existente: str = None,
+        id_usuario_demo: str = None,
     ) -> Dict[str, Any]:
         """Genera un ecosistema completo ficticio reproducible."""
         preset = preset.lower()
+        if preset not in ("salmonera", "general"):
+            raise ValueError("Preset desconocido")
         now = datetime.now(timezone.utc)
 
         # 1. Resolver Organización Demo
         if id_organizacion_existente:
             stmt_org = select(Organizacion).where(Organizacion.id == id_organizacion_existente)
             org = (await db.execute(stmt_org)).scalar_one()
+            existing = (await db.execute(select(TipoMovimiento.id).where(
+                TipoMovimiento.id_organizacion == org.id, TipoMovimiento.codigo == "RECEPCION_DEMO",
+            ))).scalar_one_or_none()
+            if existing:
+                return {"status": "already_exists", "preset": preset, "id_organizacion": org.id,
+                        "organizacion_nombre": org.nombre, "mensaje": "El seed demo ya existe en esta organización"}
         else:
             slug = f"demo-{preset}-{uuid.uuid4().hex[:6]}"
             nombre_org = f"Demo Acuicultura Austral ({preset.capitalize()})" if preset == "salmonera" else f"Demo Distribución Global ({preset.capitalize()})"
@@ -54,6 +63,14 @@ class DemoGeneratorService:
             )
             db.add(org)
             await db.flush()
+            demo_user = Usuario(
+                id=str(uuid.uuid4()), nombre="Usuario Demo", email=f"demo-{uuid.uuid4().hex[:12]}@example.invalid",
+                password_hash="!", codigo_empleado=f"DEMO-{uuid.uuid4().hex[:12]}",
+                rol="super_admin", id_organizacion=org.id, activo=False,
+            )
+            db.add(demo_user)
+            await db.flush()
+            id_usuario_demo = demo_user.id
 
         # 2. Tipos de Movimiento
         tipo_in = TipoMovimiento(
@@ -168,6 +185,8 @@ class DemoGeneratorService:
                 unidad_medida="kg",
             )
             db.add(saldo_silo)
+            demo_location, demo_item, demo_lot = ubi_silo, item_pellet, lote_alim
+            demo_quantity = Decimal("12000.0000")
 
         else:
             # Preset general / retail
@@ -238,6 +257,32 @@ class DemoGeneratorService:
                 unidad_medida="kg",
             )
             db.add(saldo_gen)
+            demo_location, demo_item, demo_lot = ubi_pallet, item_gen, lote_gen
+            demo_quantity = Decimal("500.0000")
+
+        db.add(MovimientoV2(
+            id_organizacion=org.id, id_tipo_movimiento=tipo_in.id,
+            id_item=demo_item.id, id_lote=demo_lot.id,
+            id_ubicacion_destino=demo_location.id, id_usuario=id_usuario_demo,
+            id_usuario_aprobador=id_usuario_demo, cantidad=demo_quantity,
+            unidad_medida="kg", efecto_stock="entrada", atributos={"demo": True},
+            observaciones="Saldo inicial ficticio del preset demo",
+        ))
+        demo_job = ImportacionJob(
+            id_organizacion=org.id, id_usuario=id_usuario_demo,
+            nombre_archivo="conteo_ficticio_demo.csv", tipo_fuente="csv", estado="completado",
+            total_registros=1, registros_validos=0, registros_inconsistentes=1,
+            resumen={"demo": True, "preset": preset},
+        )
+        db.add(demo_job)
+        await db.flush()
+        db.add(Inconsistencia(
+            id_organizacion=org.id, id_importacion_job=demo_job.id, fila_origen=2,
+            tipo_inconsistencia="sobrecapacidad", motivo="Conteo externo ficticio supera la capacidad",
+            codigo_ubicacion=demo_location.codigo, codigo_item=demo_item.codigo,
+            numero_lote=demo_lot.numero_lote, cantidad_externa=demo_location.capacidad_maxima + 1,
+            datos_crudos={"demo": True},
+        ))
 
         await db.commit()
 

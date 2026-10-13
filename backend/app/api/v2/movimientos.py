@@ -1,10 +1,12 @@
 import math
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
+from app.core.modules.registry import require_module_enabled
+from app.core.site_access import allowed_location_ids
 from app.database import get_db
 from app.models.v2.movimiento import MovimientoV2
 from app.models.v2.saldo_stock import SaldoStock
@@ -116,6 +118,13 @@ async def listar_solicitudes(
 ):
     """Lista solicitudes de movimiento de la organización con paginación."""
     stmt = select(SolicitudMovimiento).where(SolicitudMovimiento.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        locations = allowed_location_ids(tenant)
+        stmt = stmt.where(
+            or_(SolicitudMovimiento.id_ubicacion_origen.is_not(None), SolicitudMovimiento.id_ubicacion_destino.is_not(None)),
+            or_(SolicitudMovimiento.id_ubicacion_origen.is_(None), SolicitudMovimiento.id_ubicacion_origen.in_(locations)),
+            or_(SolicitudMovimiento.id_ubicacion_destino.is_(None), SolicitudMovimiento.id_ubicacion_destino.in_(locations)),
+        )
     if estado:
         stmt = stmt.where(SolicitudMovimiento.estado == estado)
 
@@ -171,6 +180,13 @@ async def listar_movimientos(
 ):
     """Consulta el libro inmutable de movimientos confirmados de la organización."""
     stmt = select(MovimientoV2).where(MovimientoV2.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        locations = allowed_location_ids(tenant)
+        stmt = stmt.where(
+            or_(MovimientoV2.id_ubicacion_origen.is_not(None), MovimientoV2.id_ubicacion_destino.is_not(None)),
+            or_(MovimientoV2.id_ubicacion_origen.is_(None), MovimientoV2.id_ubicacion_origen.in_(locations)),
+            or_(MovimientoV2.id_ubicacion_destino.is_(None), MovimientoV2.id_ubicacion_destino.in_(locations)),
+        )
     if efecto_stock:
         stmt = stmt.where(MovimientoV2.efecto_stock == efecto_stock)
 
@@ -197,6 +213,13 @@ async def consultar_trazabilidad(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debe especificar id_lote o id_item para trazabilidad")
 
     stmt = select(MovimientoV2).where(MovimientoV2.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        locations = allowed_location_ids(tenant)
+        stmt = stmt.where(
+            or_(MovimientoV2.id_ubicacion_origen.is_not(None), MovimientoV2.id_ubicacion_destino.is_not(None)),
+            or_(MovimientoV2.id_ubicacion_origen.is_(None), MovimientoV2.id_ubicacion_origen.in_(locations)),
+            or_(MovimientoV2.id_ubicacion_destino.is_(None), MovimientoV2.id_ubicacion_destino.in_(locations)),
+        )
     if id_lote:
         stmt = stmt.where(MovimientoV2.id_lote == id_lote)
     if id_item:
@@ -216,6 +239,8 @@ async def consultar_saldos(
 ):
     """Consulta los saldos de stock consolidados por ubicación, ítem o lote."""
     stmt = select(SaldoStock).where(SaldoStock.id_organizacion == tenant.id_organizacion)
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(SaldoStock.id_ubicacion.in_(allowed_location_ids(tenant)))
     if id_ubicacion:
         stmt = stmt.where(SaldoStock.id_ubicacion == id_ubicacion)
     if id_item:
@@ -228,7 +253,7 @@ async def consultar_saldos(
 
 # ─── Sincronización Offline (Fase 1C) ────────────────────────────────────────
 
-@router.post("/sync", response_model=SyncBatchResponse)
+@router.post("/sync", response_model=SyncBatchResponse, dependencies=[Depends(require_module_enabled("offline_sync"))])
 async def sincronizar_movimientos_offline(
     batch: SyncBatchRequest,
     tenant: TenantContext = Depends(get_current_tenant),

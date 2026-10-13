@@ -173,6 +173,7 @@ async def disparar_evaluacion_alertas(
     """Ejecuta la evaluación de todas las reglas habilitadas para la organización."""
     nuevas = await AlertaServiceV2.evaluar_alertas(db, tenant.id_organizacion)
     await db.commit()
+    await AlertaServiceV2.notificar_alertas(db, tenant.id_organizacion, nuevas)
 
     stmt_count_reglas = select(func.count(ReglaAlertaV2.id)).where(
         ReglaAlertaV2.id_organizacion == tenant.id_organizacion,
