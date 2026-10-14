@@ -52,3 +52,14 @@ class EvolucionMovimientoItem(BaseModel):
     salidas: int
     traslados: int
     total: int
+
+
+class TopItemMovimiento(BaseModel):
+    id_item: str
+    nombre: str
+    movimientos: int
+
+
+class ResumenGerencia(BaseModel):
+    movimientos_diarios: List[EvolucionMovimientoItem]
+    top_items: List[TopItemMovimiento]

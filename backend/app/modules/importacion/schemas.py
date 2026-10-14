@@ -73,6 +73,12 @@ class ConciliacionResultado(BaseModel):
     inconsistencias: List[InconsistenciaRead]
 
 
+class PrevisualizacionArchivo(BaseModel):
+    columnas: List[str]
+    filas: List[Dict[str, str]]
+    total_filas: int
+
+
 class ImportacionAPIRequest(BaseModel):
     fuente: str = Field(..., min_length=1, max_length=100)
     filas: List[Dict[str, Any]] = Field(..., min_length=1, max_length=10000)

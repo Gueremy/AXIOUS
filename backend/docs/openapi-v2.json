@@ -5542,6 +5542,53 @@
         }
       }
     },
+    "/api/v2/importacion/previsualizar": {
+      "post": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Previsualizar Archivo",
+        "description": "Previsualiza CSV o XLSX con el mismo parser utilizado para conciliar.",
+        "operationId": "previsualizar_archivo_api_v2_importacion_previsualizar_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_previsualizar_archivo_api_v2_importacion_previsualizar_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisualizacionArchivo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v2/importacion/conciliar": {
       "post": {
         "tags": [
@@ -5748,6 +5795,33 @@
             }
           }
         }
+      }
+    },
+    "/api/v2/dashboard/gerencia": {
+      "get": {
+        "tags": [
+          "V2 - Dashboard y Reportes"
+        ],
+        "summary": "Obtener Resumen Gerencia",
+        "description": "Cuenta movimientos confirmados reales de los últimos 15 días por tenant y sitio.",
+        "operationId": "obtener_resumen_gerencia_api_v2_dashboard_gerencia_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenGerencia"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/api/v2/dashboard/kpis": {
@@ -7968,6 +8042,20 @@
         ],
         "title": "Body_login_auth_login_post"
       },
+      "Body_previsualizar_archivo_api_v2_importacion_previsualizar_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_previsualizar_archivo_api_v2_importacion_previsualizar_post"
+      },
       "ConciliacionResultado": {
         "properties": {
           "job": {
@@ -8459,6 +8547,39 @@
         ],
         "title": "EvolucionItem",
         "description": "Evolución de movimientos por día — formato Recharts LineChart."
+      },
+      "EvolucionMovimientoItem": {
+        "properties": {
+          "fecha": {
+            "type": "string",
+            "title": "Fecha"
+          },
+          "entradas": {
+            "type": "integer",
+            "title": "Entradas"
+          },
+          "salidas": {
+            "type": "integer",
+            "title": "Salidas"
+          },
+          "traslados": {
+            "type": "integer",
+            "title": "Traslados"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha",
+          "entradas",
+          "salidas",
+          "traslados",
+          "total"
+        ],
+        "title": "EvolucionMovimientoItem"
       },
       "FlujoAprobacion": {
         "properties": {
@@ -11292,6 +11413,38 @@
         ],
         "title": "PickingSugerenciaItem"
       },
+      "PrevisualizacionArchivo": {
+        "properties": {
+          "columnas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columnas"
+          },
+          "filas": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Filas"
+          },
+          "total_filas": {
+            "type": "integer",
+            "title": "Total Filas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columnas",
+          "filas",
+          "total_filas"
+        ],
+        "title": "PrevisualizacionArchivo"
+      },
       "ProductoCreate": {
         "properties": {
           "nombre": {
@@ -11833,6 +11986,30 @@
           "new_password"
         ],
         "title": "ResetPasswordRequest"
+      },
+      "ResumenGerencia": {
+        "properties": {
+          "movimientos_diarios": {
+            "items": {
+              "$ref": "#/components/schemas/EvolucionMovimientoItem"
+            },
+            "type": "array",
+            "title": "Movimientos Diarios"
+          },
+          "top_items": {
+            "items": {
+              "$ref": "#/components/schemas/TopItemMovimiento"
+            },
+            "type": "array",
+            "title": "Top Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "movimientos_diarios",
+          "top_items"
+        ],
+        "title": "ResumenGerencia"
       },
       "RolCreate": {
         "properties": {
@@ -13077,6 +13254,29 @@
           "refresh_token"
         ],
         "title": "TokenResponse"
+      },
+      "TopItemMovimiento": {
+        "properties": {
+          "id_item": {
+            "type": "string",
+            "title": "Id Item"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "movimientos": {
+            "type": "integer",
+            "title": "Movimientos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_item",
+          "nombre",
+          "movimientos"
+        ],
+        "title": "TopItemMovimiento"
       },
       "TurnoEnum": {
         "type": "string",

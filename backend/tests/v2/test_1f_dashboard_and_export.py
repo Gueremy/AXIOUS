@@ -233,6 +233,24 @@ async def test_dashboard_inconsistencias_con_referencia_ubicacion(client: AsyncC
 
 
 @pytest.mark.asyncio
+async def test_resumen_gerencia_usa_movimientos_reales_y_aisla_tenant(client: AsyncClient, setup_dashboard_fixture):
+    ctx = setup_dashboard_fixture
+    headers_a = {"Authorization": f"Bearer {ctx['token_a']}"}
+    headers_b = {"Authorization": f"Bearer {ctx['token_b']}"}
+    response = await client.get("/api/v2/dashboard/gerencia", headers=headers_a)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert len(data["movimientos_diarios"]) == 15
+    assert sum(day["total"] for day in data["movimientos_diarios"]) == 1
+    assert data["top_items"][0]["nombre"] == "Salmón Fresco Calibre 4-5"
+    assert data["top_items"][0]["movimientos"] == 1
+    other = await client.get("/api/v2/dashboard/gerencia", headers=headers_b)
+    assert other.status_code == 200
+    assert sum(day["total"] for day in other.json()["movimientos_diarios"]) == 0
+    assert other.json()["top_items"] == []
+
+
+@pytest.mark.asyncio
 async def test_exportacion_movimientos_csv_excel_pdf(client: AsyncClient, setup_dashboard_fixture):
     """Verifica la exportación en los 3 formatos (CSV, Excel, PDF) y que ninguno exponga RUT."""
     ctx = setup_dashboard_fixture

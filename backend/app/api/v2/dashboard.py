@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -19,12 +19,60 @@ from app.schemas.v2.dashboard import (
     DashboardKPIs,
     InconsistenciaDashboardItem,
     UbicacionOcupacionItem,
+    EvolucionMovimientoItem,
+    ResumenGerencia,
+    TopItemMovimiento,
 )
 from app.services.v2.export_service import ExportServiceV2
 from app.services.v2.configuracion_operativa import obtener_configuracion
 
 router = APIRouter(prefix="/dashboard", tags=["V2 - Dashboard y Reportes"],
                    dependencies=[Depends(require_permission("dashboard:read"))])
+
+
+@router.get("/gerencia", response_model=ResumenGerencia)
+async def obtener_resumen_gerencia(
+    tenant: TenantContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cuenta movimientos confirmados reales de los últimos 15 días por tenant y sitio."""
+    hoy = datetime.now(timezone.utc).date()
+    inicio = hoy - timedelta(days=14)
+    visibles = scope_movement_query(
+        select(MovimientoV2.fecha_hora, MovimientoV2.efecto_stock, MovimientoV2.id_item)
+        .where(MovimientoV2.id_organizacion == tenant.id_organizacion,
+               MovimientoV2.fecha_hora >= datetime.combine(inicio, datetime.min.time(), timezone.utc)),
+        tenant, MovimientoV2,
+    ).subquery()
+    filas = (await db.execute(select(
+        func.date(visibles.c.fecha_hora), visibles.c.efecto_stock, func.count(),
+    ).group_by(func.date(visibles.c.fecha_hora), visibles.c.efecto_stock))).all()
+    por_dia = {}
+    for fecha, efecto, cantidad in filas:
+        dia = str(fecha)
+        conteo = por_dia.setdefault(dia, {"entradas": 0, "salidas": 0, "traslados": 0})
+        campo = {"entrada": "entradas", "salida": "salidas", "traslado": "traslados"}.get(efecto)
+        if campo:
+            conteo[campo] += cantidad
+    evolucion = []
+    for indice in range(15):
+        fecha = (inicio + timedelta(days=indice)).isoformat()
+        conteo = por_dia.get(fecha, {"entradas": 0, "salidas": 0, "traslados": 0})
+        evolucion.append(EvolucionMovimientoItem(
+            fecha=fecha, **conteo, total=sum(conteo.values()),
+        ))
+
+    top = (await db.execute(select(
+        visibles.c.id_item, Item.nombre, func.count().label("movimientos"),
+    ).join(Item, Item.id == visibles.c.id_item).where(
+        Item.id_organizacion == tenant.id_organizacion,
+    ).group_by(visibles.c.id_item, Item.nombre)
+      .order_by(func.count().desc(), Item.nombre.asc()).limit(5))).all()
+    return ResumenGerencia(
+        movimientos_diarios=evolucion,
+        top_items=[TopItemMovimiento(id_item=id_item, nombre=nombre, movimientos=cantidad)
+                   for id_item, nombre, cantidad in top],
+    )
 
 
 # ─── Indicadores KPIs de Supervisor ──────────────────────────────────────────

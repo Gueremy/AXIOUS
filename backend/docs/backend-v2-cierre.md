@@ -15,7 +15,9 @@ El contrato backend para conectar el frontend v2 queda implementado y verificado
 | 2–2E | Módulos opcionales y feature flags, bus de eventos, pack salmonero desacoplado y picking FEFO/FIFO/LIFO configurable. |
 | 3–4 | API de layout, seed demo idempotente, conectores, eventos entrantes idempotentes y webhooks firmados con cola persistente y reintentos. |
 
-Las pruebas rápidas pasan con **150/150** casos. Las pruebas de integración PostgreSQL pasan con **5/5** casos, incluida la reproducción del recorrido global. La cadena completa de migraciones se aplicó desde una base vacía y `alembic check` no detectó diferencias entre el esquema migrado y los modelos. PostgreSQL verifica JSONB, índices, trigger, restricción de saldos sin lote, aprobación concurrente y flujo multietapa con unidades convertidas. OpenAPI actualizado: `docs/openapi-v2.json`.
+Las pruebas rápidas pasan con **151/151** casos. Las pruebas de integración PostgreSQL pasan con **6/6** casos, incluida la reproducción del recorrido global y el rollback/deduplicación del outbox. La cadena completa de migraciones se aplicó desde una base vacía y `alembic check` no detectó diferencias entre el esquema migrado y los modelos. PostgreSQL verifica JSONB, índices, trigger, restricción de saldos sin lote, aprobación concurrente y flujo multietapa con unidades convertidas. OpenAPI actualizado: `docs/openapi-v2.json`.
+
+La integración conjunta incorpora `GET /api/v2/dashboard/gerencia` con agregados reales de movimientos y `POST /api/v2/importacion/previsualizar` con el parser CSV/XLSX del servidor. Los webhooks de movimientos e importación se guardan en la transacción de negocio y pueden despacharse tras reiniciar. Estas comprobaciones no sustituyen un ensayo de migración sobre datos reales, pruebas de carga ni la validación de conectores externos.
 
 ## Ampliación según los requisitos generales modulares
 

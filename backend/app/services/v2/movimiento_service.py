@@ -26,6 +26,7 @@ from app.models.v2.ubicacion import Ubicacion
 from app.services.v2.reglas_service import ReglasUbicacionService
 from app.services.v2.configuracion_operativa import obtener_configuracion, convertir_cantidad
 from app.core.events.event_bus import DomainEvent, EventBus
+from app.integraciones.webhooks import preparar_entregas_webhook
 
 
 def _etapas(tipo: TipoMovimiento) -> list[dict]:
@@ -224,12 +225,14 @@ class MovimientoService:
                 entidad_afectada="v2_solicitud_movimiento", id_entidad=solicitud.id,
                 detalles={"etapa": codigos[indice], "siguiente": solicitud.estado},
             ))
-            await db.commit()
-            await db.refresh(solicitud)
-            await EventBus.publish(DomainEvent(
+            evento_etapa = DomainEvent(
                 name="movimiento.etapa_aprobada", id_organizacion=tenant.id_organizacion,
                 payload={"id_solicitud": solicitud.id, "etapa": codigos[indice]},
-            ))
+            )
+            await preparar_entregas_webhook(db, evento_etapa)
+            await db.commit()
+            await db.refresh(solicitud)
+            await EventBus.publish(evento_etapa)
             return solicitud
 
         solicitud.estado = (tipo.flujo_aprobacion or {}).get("estado_aprobado", "aprobada")
@@ -237,12 +240,14 @@ class MovimientoService:
         solicitud.fecha_resolucion = func.now()
         movimiento = await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
 
-        await db.commit()
-        await db.refresh(movimiento)
-        await EventBus.publish(DomainEvent(
+        evento_aprobado = DomainEvent(
             name="movimiento.aprobado", id_organizacion=tenant.id_organizacion,
             payload={"id_solicitud": solicitud.id, "id_movimiento": movimiento.id},
-        ))
+        )
+        await preparar_entregas_webhook(db, evento_aprobado)
+        await db.commit()
+        await db.refresh(movimiento)
+        await EventBus.publish(evento_aprobado)
         await MovimientoService.publicar_movimiento_confirmado(db, tenant, movimiento)
         return movimiento
 
@@ -282,16 +287,16 @@ class MovimientoService:
         solicitud.id_usuario_aprobador = tenant.usuario.id
         solicitud.fecha_resolucion = func.now()
 
+        evento_rechazado = DomainEvent(
+            name="movimiento.rechazado",
+            id_organizacion=tenant.id_organizacion,
+            payload={"id_solicitud": solicitud.id, "motivo": motivo_rechazo, "item_id": solicitud.id_item},
+        )
+        await preparar_entregas_webhook(db, evento_rechazado)
         await db.commit()
         await db.refresh(solicitud)
 
-        await EventBus.publish(
-            DomainEvent(
-                name="movimiento.rechazado",
-                id_organizacion=tenant.id_organizacion,
-                payload={"id_solicitud": solicitud.id, "motivo": motivo_rechazo, "item_id": solicitud.id_item},
-            )
-        )
+        await EventBus.publish(evento_rechazado)
         return solicitud
 
     @staticmethod
@@ -432,17 +437,17 @@ class MovimientoService:
         )
         db.add(auditoria)
 
+        await preparar_entregas_webhook(
+            db, MovimientoService._evento_movimiento_confirmado(tenant, movimiento, tipo),
+        )
+
         return movimiento
 
     @staticmethod
-    async def publicar_movimiento_confirmado(
-        db: AsyncSession, tenant: TenantContext, movimiento: MovimientoV2,
-    ) -> None:
-        """Emite efectos externos sólo después de confirmar el movimiento en BD."""
-        tipo = (await db.execute(select(TipoMovimiento).where(
-            TipoMovimiento.id == movimiento.id_tipo_movimiento,
-        ))).scalar_one()
-        await EventBus.publish(DomainEvent(
+    def _evento_movimiento_confirmado(
+        tenant: TenantContext, movimiento: MovimientoV2, tipo: TipoMovimiento,
+    ) -> DomainEvent:
+        return DomainEvent(
             name="movimiento.creado",
             id_organizacion=tenant.id_organizacion,
             payload={
@@ -457,4 +462,14 @@ class MovimientoService:
                 "cantidad": float(movimiento.cantidad),
                 "atributos": movimiento.atributos or {},
             },
-        ))
+        )
+
+    @staticmethod
+    async def publicar_movimiento_confirmado(
+        db: AsyncSession, tenant: TenantContext, movimiento: MovimientoV2,
+    ) -> None:
+        """Emite efectos externos sólo después de confirmar el movimiento en BD."""
+        tipo = (await db.execute(select(TipoMovimiento).where(
+            TipoMovimiento.id == movimiento.id_tipo_movimiento,
+        ))).scalar_one()
+        await EventBus.publish(MovimientoService._evento_movimiento_confirmado(tenant, movimiento, tipo))

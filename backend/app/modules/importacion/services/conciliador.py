@@ -316,10 +316,13 @@ class ConciliadorService:
         )
         db.add(auditoria)
 
-        await db.commit()
-        await db.refresh(job)
-        await EventBus.publish(DomainEvent(
+        evento = DomainEvent(
             name="importacion.finalizada", id_organizacion=tenant.id_organizacion,
             payload={"id_job": job.id, "inconsistencias": total_inconsistencias},
-        ))
+        )
+        from app.integraciones.webhooks import preparar_entregas_webhook
+        await preparar_entregas_webhook(db, evento)
+        await db.commit()
+        await db.refresh(job)
+        await EventBus.publish(evento)
         return job

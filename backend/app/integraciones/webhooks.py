@@ -14,6 +14,7 @@ from typing import Any, Dict
 import httpx
 from cryptography.fernet import Fernet
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.events.event_bus import DomainEvent
@@ -70,34 +71,39 @@ class WebhookDispatcher:
             return False
 
 
-async def encolar_evento_webhook(event: DomainEvent) -> None:
-    """Persiste una entrega por destino tras confirmarse el evento de dominio."""
+async def preparar_entregas_webhook(db: AsyncSession, event: DomainEvent) -> None:
+    """Agrega entregas a la transacción del cambio que produjo el evento."""
     event_id = str(event.payload.get("id_movimiento") or event.payload.get("id_solicitud") or event.payload.get("id_job") or uuid.uuid4())
     if event.name == "movimiento.etapa_aprobada":
         event_id = f"{event_id}:{event.payload.get('etapa')}"
+    destinos = (await db.execute(select(WebhookDestino).where(
+        WebhookDestino.id_organizacion == event.id_organizacion,
+        WebhookDestino.activo == True,
+    ))).scalars().all()
+    for destino in destinos:
+        if event.name not in destino.eventos:
+            continue
+        existe = (await db.execute(select(WebhookEntrega.id).where(
+            WebhookEntrega.id_destino == destino.id,
+            WebhookEntrega.tipo_evento == event.name,
+            WebhookEntrega.id_evento == event_id,
+        ))).scalar_one_or_none()
+        if existe:
+            continue
+        db.add(WebhookEntrega(
+            id_organizacion=event.id_organizacion, id_destino=destino.id,
+            tipo_evento=event.name, id_evento=event_id,
+            payload={"evento": event.name, "id_evento": event_id,
+                     "fecha": event.timestamp.isoformat(), "datos": event.payload},
+            estado="pendiente", intentos=0,
+            proximo_intento=datetime.now(timezone.utc),
+        ))
+
+
+async def encolar_evento_webhook(event: DomainEvent) -> None:
+    """Compatibilidad con eventos publicados después del commit, con deduplicación."""
     async with AsyncSessionLocal() as db:
-        destinos = (await db.execute(select(WebhookDestino).where(
-            WebhookDestino.id_organizacion == event.id_organizacion,
-            WebhookDestino.activo == True,
-        ))).scalars().all()
-        for destino in destinos:
-            if event.name not in destino.eventos:
-                continue
-            existe = (await db.execute(select(WebhookEntrega.id).where(
-                WebhookEntrega.id_destino == destino.id,
-                WebhookEntrega.tipo_evento == event.name,
-                WebhookEntrega.id_evento == event_id,
-            ))).scalar_one_or_none()
-            if existe:
-                continue
-            db.add(WebhookEntrega(
-                id_organizacion=event.id_organizacion, id_destino=destino.id,
-                tipo_evento=event.name, id_evento=event_id,
-                payload={"evento": event.name, "id_evento": event_id,
-                         "fecha": event.timestamp.isoformat(), "datos": event.payload},
-                estado="pendiente", intentos=0,
-                proximo_intento=datetime.now(timezone.utc),
-            ))
+        await preparar_entregas_webhook(db, event)
         await db.commit()
 
 

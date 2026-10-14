@@ -18,6 +18,7 @@ from app.modules.importacion.schemas import (
     MappingProfileCreate,
     MappingProfileRead,
     MappingProfileUpdate,
+    PrevisualizacionArchivo,
 )
 from app.modules.importacion.services.conciliador import ConciliadorService
 from app.modules.importacion.services.mapping import MappingService
@@ -131,6 +132,26 @@ async def actualizar_perfil_mapeo(
 
 
 # ─── Proceso de Importación y Conciliación ───────────────────────────────────
+
+@router.post("/previsualizar", response_model=PrevisualizacionArchivo)
+async def previsualizar_archivo(file: UploadFile = File(...)):
+    """Previsualiza CSV o XLSX con el mismo parser utilizado para conciliar."""
+    extension = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if extension not in ("csv", "xlsx"):
+        raise HTTPException(status_code=400, detail="Formato no soportado. Use .csv o .xlsx")
+    contenido = await file.read(MAX_IMPORT_BYTES + 1)
+    if len(contenido) > MAX_IMPORT_BYTES:
+        raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB")
+    filas = parsear_csv(contenido) if extension == "csv" else parsear_excel(contenido)
+    if not filas:
+        raise HTTPException(status_code=400, detail="El archivo no contiene filas para previsualizar")
+    columnas = list(filas[0])
+    return PrevisualizacionArchivo(
+        columnas=columnas,
+        filas=[{columna: "" if fila.get(columna) is None else str(fila[columna])
+                for columna in columnas} for fila in filas[:3]],
+        total_filas=len(filas),
+    )
 
 @router.post("/conciliar", response_model=ConciliacionResultado)
 async def conciliar_archivo_externo(

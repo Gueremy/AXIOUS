@@ -214,6 +214,10 @@ async def test_conciliacion_csv_detecta_inconsistencias(client: AsyncClient, set
     )
 
     files = {"file": ("sap_inventory.csv", csv_content.encode("utf-8"), "text/csv")}
+    preview = await client.post("/api/v2/importacion/previsualizar", files=files, headers=headers)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["columnas"] == ["POSICION", "SKU", "LOTE", "CANTIDAD"]
+    assert preview.json()["total_filas"] == 4
     resp = await client.post("/api/v2/importacion/conciliar", files=files, headers=headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -277,6 +281,10 @@ async def test_conciliacion_excel_valida_y_procesa(client: AsyncClient, setup_co
     excel_bytes = excel_buffer.getvalue()
 
     files = {"file": ("conteo_bodega.xlsx", excel_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    preview = await client.post("/api/v2/importacion/previsualizar", files=files, headers=headers)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["filas"][0]["CANTIDAD"] == "100"
+    assert preview.json()["total_filas"] == 2
     resp = await client.post("/api/v2/importacion/conciliar", files=files, headers=headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()

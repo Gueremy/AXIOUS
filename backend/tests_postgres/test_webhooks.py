@@ -10,9 +10,49 @@ from app.core.events.event_bus import DomainEvent
 from app.database import AsyncSessionLocal
 from app.integraciones.webhooks import (
     WebhookDispatcher, cifrar_secreto, descifrar_secreto,
-    despachar_webhooks_pendientes, encolar_evento_webhook,
+    despachar_webhooks_pendientes, encolar_evento_webhook, preparar_entregas_webhook,
 )
 from app.models.v2 import Organizacion, WebhookDestino, WebhookEntrega
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_webhook_outbox_uses_business_transaction():
+    if "postgresql+asyncpg" not in settings.DATABASE_URL or "axious_v2_completion_test" not in settings.DATABASE_URL:
+        pytest.skip("Requiere DATABASE_URL de PostgreSQL axious_v2_completion_test")
+
+    org = Organizacion(id=str(uuid.uuid4()), nombre="Outbox Test", slug=f"outbox-{uuid.uuid4().hex[:12]}")
+    destino = WebhookDestino(id_organizacion=org.id, url="https://example.com/outbox",
+                             secreto_cifrado=cifrar_secreto("test-secret"),
+                             eventos=["movimiento.creado"], activo=True)
+    async with AsyncSessionLocal() as db:
+        db.add(org)
+        await db.flush()
+        db.add(destino)
+        await db.commit()
+
+    event_id = str(uuid.uuid4())
+    event = DomainEvent("movimiento.creado", org.id, {"id_movimiento": event_id})
+    async with AsyncSessionLocal() as db:
+        await preparar_entregas_webhook(db, event)
+        await db.flush()
+        await db.rollback()
+    async with AsyncSessionLocal() as db:
+        assert (await db.execute(select(WebhookEntrega).where(
+            WebhookEntrega.id_destino == destino.id,
+        ))).scalars().all() == []
+
+    async with AsyncSessionLocal() as db:
+        await preparar_entregas_webhook(db, event)
+        await db.commit()
+    await encolar_evento_webhook(event)
+    async with AsyncSessionLocal() as db:
+        entregas = (await db.execute(select(WebhookEntrega).where(
+            WebhookEntrega.id_destino == destino.id,
+        ))).scalars().all()
+        assert len(entregas) == 1
+        assert entregas[0].id_evento == event_id
+        entregas[0].proximo_intento = datetime.now(timezone.utc) + timedelta(days=1)
+        await db.commit()
 
 
 @pytest.mark.asyncio(loop_scope="session")
