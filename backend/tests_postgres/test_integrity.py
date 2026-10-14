@@ -13,15 +13,49 @@ from app.core.dependencies_v2 import TenantContext
 from app.database import AsyncSessionLocal
 from app.models.usuario import Usuario
 from app.models.v2 import (
-    Item, Lote, MovimientoV2, Organizacion, SaldoStock, Sitio,
+    AlertaV2, Item, Lote, MovimientoV2, Organizacion, SaldoStock, Sitio,
     SolicitudMovimiento, TipoMovimiento, Ubicacion, Zona,
 )
 from app.services.v2.movimiento_service import MovimientoService
+from app.services.v2.alerta_service import AlertaServiceV2
 
 
 def _require_test_postgres():
     if "postgresql+asyncpg" not in settings.DATABASE_URL or "axious_v2_completion_test" not in settings.DATABASE_URL:
         pytest.skip("Requiere DATABASE_URL de PostgreSQL axious_v2_completion_test")
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_reintentos_concurrentes_crean_una_sola_alerta_offline():
+    _require_test_postgres()
+    suffix = uuid.uuid4().hex[:12]
+    org = Organizacion(id=str(uuid.uuid4()), nombre="Alertas simultáneas", slug=f"pg-alert-{suffix}")
+    user = Usuario(id=str(uuid.uuid4()), nombre="Operador", email=f"pg-alert-{suffix}@example.cl",
+                   password_hash="unused", codigo_empleado=f"PA-{suffix}",
+                   rol="super_admin", id_organizacion=org.id, activo=True)
+    async with AsyncSessionLocal() as db:
+        db.add(org)
+        await db.flush()
+        db.add(user)
+        await db.commit()
+
+    tenant = TenantContext(user, org, "super_admin", set(), None)
+    local_id = str(uuid.uuid4())
+
+    async def reject_same_uuid():
+        async with AsyncSessionLocal() as db:
+            await AlertaServiceV2.registrar_rechazo_sync(
+                db, tenant, local_id, "Capacidad insuficiente", None, None, 400,
+            )
+
+    await asyncio.gather(reject_same_uuid(), reject_same_uuid())
+    async with AsyncSessionLocal() as db:
+        alerts = (await db.execute(select(AlertaV2).where(
+            AlertaV2.id_organizacion == org.id,
+            AlertaV2.tipo == "sincronizacion_offline_rechazada",
+        ))).scalars().all()
+        assert len(alerts) == 1
+        assert alerts[0].metadatos["uuid_local"] == local_id
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -89,6 +123,25 @@ async def test_aprobacion_concurrente_y_constraints_postgres():
         balance = (await db.execute(select(SaldoStock).where(SaldoStock.id_ubicacion == location.id))).scalar_one()
         assert balance.cantidad == Decimal("10")
 
+    local_id = str(uuid.uuid4())
+
+    async def submit_same_uuid():
+        async with AsyncSessionLocal() as db:
+            return await MovimientoService.crear_solicitud(
+                db, tenant, kind.id, item.id, Decimal("3"), "kg",
+                id_lote=lot.id, id_ubicacion_destino=location.id, uuid_local=local_id,
+            )
+
+    attempts = await asyncio.gather(submit_same_uuid(), submit_same_uuid())
+    assert attempts[0].id == attempts[1].id
+    async with AsyncSessionLocal() as db:
+        requests = (await db.execute(select(SolicitudMovimiento).where(
+            SolicitudMovimiento.id_organizacion == org.id,
+            SolicitudMovimiento.uuid_local == local_id,
+        ))).scalars().all()
+        assert len(requests) == 1
+
+    async with AsyncSessionLocal() as db:
         with pytest.raises(DBAPIError):
             await db.execute(update(MovimientoV2).where(MovimientoV2.id == movements[0].id).values(cantidad=11))
         await db.rollback()

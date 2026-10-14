@@ -10,7 +10,7 @@ Ejecuta la confirmación en una única transacción:
 from decimal import Decimal
 from typing import List, Optional
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
@@ -142,6 +142,12 @@ class MovimientoService:
 
         # Verificar idempotencia si viene uuid_local
         if uuid_local:
+            if db.bind.dialect.name == "postgresql":
+                # Serializa los reintentos del mismo dispositivo dentro de la transacción.
+                # La consulta de duplicados debe ejecutarse después del bloqueo.
+                await db.execute(text(
+                    "SELECT pg_advisory_xact_lock(hashtext(:org_id), hashtext(:local_id))"
+                ), {"org_id": tenant.id_organizacion, "local_id": uuid_local})
             stmt_dup = select(SolicitudMovimiento).where(
                 SolicitudMovimiento.id_organizacion == tenant.id_organizacion,
                 SolicitudMovimiento.uuid_local == uuid_local,
