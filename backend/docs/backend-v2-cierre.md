@@ -19,6 +19,8 @@ Las pruebas rápidas pasan con **151/151** casos. Las pruebas de integración Po
 
 La integración conjunta incorpora `GET /api/v2/dashboard/gerencia` con agregados reales de movimientos y `POST /api/v2/importacion/previsualizar` con el parser CSV/XLSX del servidor. Los webhooks de movimientos e importación se guardan en la transacción de negocio y pueden despacharse tras reiniciar. `scripts/load_smoke_v2.py` ejecutó 100 lecturas por ruta con 10 solicitudes concurrentes sobre PostgreSQL local, sin fallos: p95 de 238,2 ms para Gerencia y 53,1 ms para solicitudes. Esto es una referencia del entorno de QA; faltan un ensayo representativo de producción, migración/rollback sobre datos autorizados y conectores externos.
 
+`python -m scripts.seed_browser_flow_qa` prepara en la organización QA una segunda ubicación, una salida de dos etapas y un traslado. Exige `SALMO_QA_ORG_SLUG`, `ENVIRONMENT=test` y la base `axious_v2_completion_test`; permite repetir el recorrido ampliado del navegador sin tocar datos reales.
+
 ## Ampliación según los requisitos generales modulares
 
 El backend cubre RG-01 a RG-22 y RG-26. RG-23 a RG-25 son almacenamiento y cola locales del cliente, fuera de este backend. Las diez brechas detectadas en la revisión del documento general se cerraron así:
