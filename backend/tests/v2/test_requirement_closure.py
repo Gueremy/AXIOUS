@@ -60,6 +60,18 @@ async def contexto(db):
 
 
 @pytest.mark.asyncio
+async def test_sesion_v2_expone_tenant_permisos_y_modulos(client, contexto):
+    response = await client.get("/api/v2/sesion", headers=contexto["headers"])
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["usuario"]["id"] == contexto["user"].id
+    assert data["organizacion"]["id"] == contexto["org"].id
+    assert "movimiento:create" in data["permisos"]
+    assert isinstance(data["modulos_activos"], list)
+    assert data["configuracion_operativa"]["umbrales_color"] == {"alerta": 40.0, "critica": 80.0}
+
+
+@pytest.mark.asyncio
 async def test_patch_atributos_valida_esquema(client, db, contexto):
     db.add(EsquemaAtributos(id_organizacion=contexto["org"].id, entidad="item",
                             nombre="item", version=1, activo=True,
@@ -176,6 +188,9 @@ async def test_flujo_de_dos_etapas_y_demo_retail(client, db, contexto):
     h_jefe = {"Authorization": f"Bearer {jefe_token}"}
     etapa = await client.patch(f"/api/v2/movimientos/solicitudes/{sid}/aprobar", headers=h_jefe)
     assert etapa.status_code == 200 and etapa.json()["estado"] == "autorizacion"
+    pendientes = await client.get("/api/v2/movimientos/solicitudes?pendientes=true", headers=h)
+    assert pendientes.status_code == 200
+    assert any(item["id"] == sid for item in pendientes.json()["items"])
     sin_rol = await client.patch(f"/api/v2/movimientos/solicitudes/{sid}/aprobar", headers=h_jefe)
     assert sin_rol.status_code == 403
     final = await client.patch(f"/api/v2/movimientos/solicitudes/{sid}/aprobar", headers=h)

@@ -22,6 +22,7 @@ from app.api.v2.usuarios import router as usuarios_router
 from app.api.v2.roles import router as roles_router
 from app.api.v2.configuracion_operativa import router as configuracion_operativa_router
 from app.api.v2.exportaciones import router as exportaciones_router
+from app.api.v2.sesion import router as sesion_router
 
 api_v2_router = APIRouter(prefix="/api/v2")
 
@@ -47,3 +48,4 @@ api_v2_router.include_router(usuarios_router)
 api_v2_router.include_router(roles_router)
 api_v2_router.include_router(configuracion_operativa_router)
 api_v2_router.include_router(exportaciones_router)
+api_v2_router.include_router(sesion_router)

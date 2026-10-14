@@ -15,7 +15,7 @@ El contrato backend para conectar el frontend v2 queda implementado y verificado
 | 2–2E | Módulos opcionales y feature flags, bus de eventos, pack salmonero desacoplado y picking FEFO/FIFO/LIFO configurable. |
 | 3–4 | API de layout, seed demo idempotente, conectores, eventos entrantes idempotentes y webhooks firmados con cola persistente y reintentos. |
 
-Las pruebas rápidas pasan con **149/149** casos. Las pruebas de integración PostgreSQL pasan con **5/5** casos, incluida la reproducción del recorrido global. La cadena completa de migraciones se aplicó desde una base vacía y `alembic check` no detectó diferencias entre el esquema migrado y los modelos. PostgreSQL verifica JSONB, índices, trigger, restricción de saldos sin lote, aprobación concurrente y flujo multietapa con unidades convertidas. OpenAPI actualizado: `docs/openapi-v2.json`.
+Las pruebas rápidas pasan con **150/150** casos. Las pruebas de integración PostgreSQL pasan con **5/5** casos, incluida la reproducción del recorrido global. La cadena completa de migraciones se aplicó desde una base vacía y `alembic check` no detectó diferencias entre el esquema migrado y los modelos. PostgreSQL verifica JSONB, índices, trigger, restricción de saldos sin lote, aprobación concurrente y flujo multietapa con unidades convertidas. OpenAPI actualizado: `docs/openapi-v2.json`.
 
 ## Ampliación según los requisitos generales modulares
 
@@ -33,6 +33,8 @@ El backend cubre RG-01 a RG-22 y RG-26. RG-23 a RG-25 son almacenamiento y cola 
 | RG-17 | El generador demo incluye presets ficticios salmonera, distribución general, retail y portuario. |
 | RG-18 | Los manifiestos declaran rutas, tablas, permisos, pantallas y eventos, además de activación por organización. |
 | RG-19 | Los reportes del núcleo reciben datos del módulo de importación por un proveedor registrado. La importación emite `importacion.finalizada`; movimientos emiten eventos para webhooks y alertas. |
+
+Para integrar el frontend, `GET /api/v2/sesion` devuelve la organización autenticada, permisos efectivos y módulos activos, derivados del contexto de tenant validado por el servidor.
 
 Cuando una organización mezcla unidades, los KPIs incluyen desglose por unidad y `totales_comparables=false`; los totales escalares antiguos se conservan para los clientes existentes. El API de exportación pagina para no truncar datos silenciosamente; consulte `X-Export-Total` y recorra las páginas. Los conectores externos concretos de cámaras, GPS y ERP siguen siendo integraciones posteriores; la interfaz, el endpoint de entrada y los webhooks están disponibles para implementarlos.
 
@@ -53,6 +55,6 @@ pytest -q tests_postgres
 
 ## Límites del cierre
 
-El cierre acredita el **contrato de backend en entorno de prueba**, no un despliegue. No se ejecutaron conectores contra SAP, WMS u otros sistemas reales ni se entregó un webhook a un destino externo; la entrega y los reintentos se probaron con un emisor simulado. Tampoco se aplicaron migraciones sobre una base de producción ni se adaptó el frontend. Antes de operar con datos reales hace falta un ensayo de migración con una copia autorizada, configuración de secretos y endpoints externos, y pruebas de extremo a extremo con el frontend v2.
+El cierre acredita el **contrato de backend en entorno de prueba**, no un despliegue. No se ejecutaron conectores contra SAP, WMS u otros sistemas reales ni se entregó un webhook a un destino externo; la entrega y los reintentos se probaron con un emisor simulado. Tampoco se aplicaron migraciones sobre una base de producción. El frontend se adaptó en una rama local separada de `salmonwise-inventory`; aún falta ejecutar una prueba de extremo a extremo con ambos servicios levantados. Antes de operar con datos reales hace falta un ensayo de migración con una copia autorizada, configuración de secretos y endpoints externos, y esa prueba integrada.
 
 La publicación de un evento de movimiento ocurre después del commit; existe una ventana de fallo de proceso antes de encolar su webhook. La cola y los reintentos son persistentes una vez encolado el evento. Para entrega garantizada incluso frente a esa ventana se requiere integrar el encolado en la misma transacción del movimiento.

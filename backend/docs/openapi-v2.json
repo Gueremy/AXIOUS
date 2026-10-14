@@ -4344,6 +4344,18 @@
             "description": "Filtrar por estado (pendiente, aprobada, rechazada)"
           },
           {
+            "name": "pendientes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Incluir todas las etapas sin resolución final",
+              "default": false,
+              "title": "Pendientes"
+            },
+            "description": "Incluir todas las etapas sin resolución final"
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -7408,6 +7420,31 @@
             }
           }
         }
+      }
+    },
+    "/api/v2/sesion": {
+      "get": {
+        "tags": [
+          "V2 - Sesión"
+        ],
+        "summary": "Obtener Sesion",
+        "description": "Devuelve tenant, permisos efectivos y módulos activos verificados en servidor.",
+        "operationId": "obtener_sesion_api_v2_sesion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/ws/health": {

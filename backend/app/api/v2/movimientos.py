@@ -154,6 +154,7 @@ async def crear_solicitud_movimiento(
 @router.get("/solicitudes", response_model=PaginatedResponse[SolicitudMovimientoRead])
 async def listar_solicitudes(
     estado: Optional[str] = Query(None, description="Filtrar por estado (pendiente, aprobada, rechazada)"),
+    pendientes: bool = Query(False, description="Incluir todas las etapas sin resolución final"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     tenant: TenantContext = Depends(get_current_tenant),
@@ -168,6 +169,8 @@ async def listar_solicitudes(
     stmt = scope_movement_query(stmt, tenant, SolicitudMovimiento)
     if estado:
         stmt = stmt.where(SolicitudMovimiento.estado == estado)
+    if pendientes:
+        stmt = stmt.where(SolicitudMovimiento.fecha_resolucion.is_(None))
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
