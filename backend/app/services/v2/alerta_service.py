@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import List, Optional
 import uuid
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
@@ -17,6 +17,7 @@ from app.core.site_access import scope_alert_query
 from app.models.log_auditoria import LogAuditoria
 from app.models.v2.alerta import AlertaV2, ReglaAlertaV2
 from app.models.v2.lote import Lote
+from app.models.v2.movimiento import MovimientoV2
 from app.models.v2.saldo_stock import SaldoStock
 from app.models.v2.sitio import Sitio
 from app.models.v2.ubicacion import Ubicacion
@@ -65,6 +66,20 @@ PLANTILLAS_DEFAULT = [
         "codigo": "discrepancia_inventario",
         "nombre": "Discrepancia en Conciliación de Inventario",
         "tipo": "conciliacion",
+        "severidad": "critica",
+        "configuracion": {},
+    },
+    {
+        "codigo": "movimiento_fuera_horario",
+        "nombre": "Movimiento fuera del horario operativo",
+        "tipo": "movimiento_fuera_horario",
+        "severidad": "aviso",
+        "configuracion": {"hora_inicio": 6, "hora_fin": 22, "zona_horaria": "America/Santiago"},
+    },
+    {
+        "codigo": "cuarentena_activa",
+        "nombre": "Ubicación retenida",
+        "tipo": "retenido",
         "severidad": "critica",
         "configuracion": {},
     },
@@ -246,6 +261,80 @@ class AlertaServiceV2:
                         )
                         db.add(alerta)
                         nuevas_alertas.append(alerta)
+
+            elif regla.tipo == "inactividad":
+                dias = int(regla.configuracion.get("dias", 30))
+                if dias < 1:
+                    continue
+                stmt_saldos = (
+                    select(SaldoStock, Zona.id_sitio)
+                    .join(Ubicacion, SaldoStock.id_ubicacion == Ubicacion.id)
+                    .join(Zona, Ubicacion.id_zona == Zona.id)
+                    .where(SaldoStock.id_organizacion == id_organizacion, SaldoStock.cantidad > 0)
+                )
+                for saldo, id_sitio in (await db.execute(stmt_saldos)).all():
+                    ultima = (await db.execute(select(func.max(MovimientoV2.fecha_hora)).where(
+                        MovimientoV2.id_organizacion == id_organizacion,
+                        MovimientoV2.id_item == saldo.id_item,
+                        or_(MovimientoV2.id_ubicacion_origen == saldo.id_ubicacion,
+                            MovimientoV2.id_ubicacion_destino == saldo.id_ubicacion),
+                    ))).scalar_one()
+                    referencia = ultima or saldo.fecha_actualizacion
+                    if referencia is None:
+                        continue
+                    if referencia.tzinfo is None:
+                        referencia = referencia.replace(tzinfo=timezone.utc)
+                    if referencia > now - timedelta(days=dias):
+                        continue
+                    existente = (await db.execute(select(AlertaV2.id).where(
+                        AlertaV2.id_organizacion == id_organizacion,
+                        AlertaV2.id_regla == regla.id,
+                        AlertaV2.id_ubicacion == saldo.id_ubicacion,
+                        AlertaV2.id_item == saldo.id_item,
+                        AlertaV2.id_lote == saldo.id_lote,
+                        AlertaV2.estado == "activa",
+                    ))).scalar_one_or_none()
+                    if existente:
+                        continue
+                    alerta = AlertaV2(
+                        id_organizacion=id_organizacion, id_regla=regla.id,
+                        id_sitio=id_sitio, id_ubicacion=saldo.id_ubicacion,
+                        id_item=saldo.id_item, id_lote=saldo.id_lote,
+                        tipo=regla.codigo, severidad=regla.severidad,
+                        titulo="Stock sin movimiento",
+                        descripcion=f"Stock sin movimientos durante al menos {dias} días.",
+                        estado="activa", metadatos={"dias": dias},
+                    )
+                    db.add(alerta)
+                    nuevas_alertas.append(alerta)
+
+            elif regla.tipo == "retenido":
+                stmt_retenidas = select(Ubicacion, Zona.id_sitio).join(
+                    Zona, Ubicacion.id_zona == Zona.id,
+                ).where(
+                    Ubicacion.id_organizacion == id_organizacion,
+                    Ubicacion.estado == "retenido",
+                    Ubicacion.activo.is_(True),
+                )
+                for ubi, id_sitio in (await db.execute(stmt_retenidas)).all():
+                    existe = (await db.execute(select(AlertaV2.id).where(
+                        AlertaV2.id_organizacion == id_organizacion,
+                        AlertaV2.id_regla == regla.id,
+                        AlertaV2.id_ubicacion == ubi.id,
+                        AlertaV2.estado == "activa",
+                    ))).scalar_one_or_none()
+                    if existe:
+                        continue
+                    alerta = AlertaV2(
+                        id_organizacion=id_organizacion, id_regla=regla.id,
+                        id_sitio=id_sitio, id_ubicacion=ubi.id,
+                        tipo=regla.codigo, severidad=regla.severidad,
+                        titulo="Ubicación retenida",
+                        descripcion=f"La ubicación {ubi.codigo} está retenida.",
+                        estado="activa", metadatos={},
+                    )
+                    db.add(alerta)
+                    nuevas_alertas.append(alerta)
 
         if nuevas_alertas:
             await db.flush()

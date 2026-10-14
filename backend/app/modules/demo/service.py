@@ -1,9 +1,11 @@
 """
-app/services/v2/demo_service.py
+app/modules/demo/service.py
 Generador de datos demo reproducibles (Fase 3B).
 Presets:
 - 'salmonera': Concesión acuícola, pontón, jaulas, ensilaje, alimento y peces.
 - 'general': Centro de distribución logístico, racks, pallets, insumos industriales.
+- 'retail': Bodega de tienda, estanterías y artículos por unidad.
+- 'portuario': Patio portuario y carga en contenedores.
 Incluye inconsistencias intencionales para evaluar conciliación y reglas.
 """
 from datetime import datetime, timedelta, timezone
@@ -28,6 +30,27 @@ from app.modules.importacion.models import ImportacionJob, Inconsistencia
 
 class DemoGeneratorService:
 
+    PRESETS = {
+        "general": {
+            "organizacion": "Demo Distribución Global", "sitio": "Centro de Distribución Logístico [DEMO]",
+            "tipo_sitio": "bodega", "zona": "Pasillo 01 Racks Pesados", "tipo_zona": "pasillo",
+            "ubicacion": "RACK-A-01", "item_codigo": "INS-CAJA-CARTON",
+            "item_nombre": "Caja Embalaje Reforzada [DEMO]", "categoria": "insumo", "unidad": "kg",
+        },
+        "retail": {
+            "organizacion": "Demo Comercio Minorista", "sitio": "Bodega de Tienda Central [DEMO]",
+            "tipo_sitio": "tienda", "zona": "Estantería de Productos", "tipo_zona": "estanteria",
+            "ubicacion": "EST-A-01", "item_codigo": "SKU-CAMISETA-01",
+            "item_nombre": "Camiseta Básica [DEMO]", "categoria": "vestuario", "unidad": "unidades",
+        },
+        "portuario": {
+            "organizacion": "Demo Terminal Portuario", "sitio": "Patio de Carga Sur [DEMO]",
+            "tipo_sitio": "patio", "zona": "Sector de Contenedores", "tipo_zona": "sector",
+            "ubicacion": "CONT-A-01", "item_codigo": "CARGA-GENERAL-01",
+            "item_nombre": "Carga General Embalada [DEMO]", "categoria": "carga", "unidad": "kg",
+        },
+    }
+
     @staticmethod
     async def generar_demo(
         db: AsyncSession,
@@ -37,7 +60,7 @@ class DemoGeneratorService:
     ) -> Dict[str, Any]:
         """Genera un ecosistema completo ficticio reproducible."""
         preset = preset.lower()
-        if preset not in ("salmonera", "general"):
+        if preset not in ("salmonera", *DemoGeneratorService.PRESETS):
             raise ValueError("Preset desconocido")
         now = datetime.now(timezone.utc)
 
@@ -53,7 +76,8 @@ class DemoGeneratorService:
                         "organizacion_nombre": org.nombre, "mensaje": "El seed demo ya existe en esta organización"}
         else:
             slug = f"demo-{preset}-{uuid.uuid4().hex[:6]}"
-            nombre_org = f"Demo Acuicultura Austral ({preset.capitalize()})" if preset == "salmonera" else f"Demo Distribución Global ({preset.capitalize()})"
+            nombre_org = (f"Demo Acuicultura Austral ({preset.capitalize()})" if preset == "salmonera"
+                          else f"{DemoGeneratorService.PRESETS[preset]['organizacion']} ({preset.capitalize()})")
             org = Organizacion(
                 id=str(uuid.uuid4()),
                 nombre=nombre_org,
@@ -189,13 +213,14 @@ class DemoGeneratorService:
             demo_quantity = Decimal("12000.0000")
 
         else:
-            # Preset general / retail
+            # Presets genéricos parametrizados por industria.
+            industria = DemoGeneratorService.PRESETS[preset]
             sitio = Sitio(
                 id=str(uuid.uuid4()),
                 id_organizacion=org.id,
                 codigo="SIT-CD-01",
-                nombre="Centro de Distribución Logístico [DEMO]",
-                tipo="bodega",
+                nombre=industria["sitio"],
+                tipo=industria["tipo_sitio"],
                 activo=True,
             )
             db.add(sitio)
@@ -206,8 +231,8 @@ class DemoGeneratorService:
                 id_organizacion=org.id,
                 id_sitio=sitio.id,
                 codigo="PASILLO-01",
-                nombre="Pasillo 01 Racks Pesados",
-                tipo="pasillo",
+                nombre=industria["zona"],
+                tipo=industria["tipo_zona"],
                 layout={"x": 0, "y": 0, "z": 0, "width": 50, "height": 4, "depth": 10},
             )
             db.add(zona_rack)
@@ -217,9 +242,9 @@ class DemoGeneratorService:
                 id=str(uuid.uuid4()),
                 id_organizacion=org.id,
                 id_zona=zona_rack.id,
-                codigo="RACK-A-01",
+                codigo=industria["ubicacion"],
                 capacidad_maxima=Decimal("1500.0000"),
-                unidad_capacidad="kg",
+                unidad_capacidad=industria["unidad"],
                 ocupacion_actual=Decimal("500.0000"),
                 permite_mezcla_lotes=True,
                 layout={"x": 2, "y": 0, "z": 1, "width": 1.2, "height": 1.0, "depth": 1.5},
@@ -230,10 +255,10 @@ class DemoGeneratorService:
             item_gen = Item(
                 id=str(uuid.uuid4()),
                 id_organizacion=org.id,
-                codigo="INS-CAJA-CARTON",
-                nombre="Caja Embalaje Reforzada [DEMO]",
-                categoria="insumo",
-                unidad_medida="kg",
+                codigo=industria["item_codigo"],
+                nombre=industria["item_nombre"],
+                categoria=industria["categoria"],
+                unidad_medida=industria["unidad"],
             )
             db.add(item_gen)
             await db.flush()
@@ -254,7 +279,7 @@ class DemoGeneratorService:
                 id_item=item_gen.id,
                 id_lote=lote_gen.id,
                 cantidad=Decimal("500.0000"),
-                unidad_medida="kg",
+                unidad_medida=industria["unidad"],
             )
             db.add(saldo_gen)
             demo_location, demo_item, demo_lot = ubi_pallet, item_gen, lote_gen
@@ -265,7 +290,7 @@ class DemoGeneratorService:
             id_item=demo_item.id, id_lote=demo_lot.id,
             id_ubicacion_destino=demo_location.id, id_usuario=id_usuario_demo,
             id_usuario_aprobador=id_usuario_demo, cantidad=demo_quantity,
-            unidad_medida="kg", efecto_stock="entrada", atributos={"demo": True},
+            unidad_medida=demo_item.unidad_medida, efecto_stock="entrada", atributos={"demo": True},
             observaciones="Saldo inicial ficticio del preset demo",
         ))
         demo_job = ImportacionJob(

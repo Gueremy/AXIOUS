@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
-from app.core.validators.schema_validator import validar_atributos
+from app.core.validators.schema_validator import validar_atributos, validar_atributos_entidad
 from app.database import get_db
 from app.models.v2.esquema_atributos import EsquemaAtributos
 from app.models.v2.item import Item
@@ -127,6 +127,9 @@ async def actualizar_lote(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lote no encontrado")
 
     update_dict = data.model_dump(exclude_unset=True)
+    if "atributos" in update_dict:
+        update_dict["atributos"] = update_dict["atributos"] or {}
+        await validar_atributos_entidad(db, tenant.id_organizacion, "lote", update_dict["atributos"])
     for field, val in update_dict.items():
         setattr(lote, field, val)
 

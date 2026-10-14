@@ -5,12 +5,14 @@ Detecta sobrecapacidad, mezclas de lotes no permitidas, ubicaciones inexistentes
 e ítems incompatibles sin modificar silenciosamente los datos.
 """
 from decimal import Decimal
+from fastapi import HTTPException
 from typing import Any, Dict, List, Optional
 import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
+from app.core.events.event_bus import DomainEvent, EventBus
 from app.core.site_access import allowed_location_ids
 from app.models.log_auditoria import LogAuditoria
 from app.models.v2.item import Item
@@ -21,6 +23,7 @@ from app.models.v2.sitio import Sitio
 from app.models.v2.ubicacion import Ubicacion
 from app.models.v2.zona import Zona
 from app.modules.importacion.models import ImportacionJob, Inconsistencia
+from app.services.v2.configuracion_operativa import obtener_configuracion, convertir_cantidad
 
 
 class ConciliadorService:
@@ -51,7 +54,8 @@ class ConciliadorService:
         await db.flush()
 
         # 1. Cargar catálogo de ubicaciones, ítems y saldos actuales de la organización
-        stmt_ubis = select(Ubicacion, Sitio.codigo, Zona.codigo).join(
+        config = await obtener_configuracion(db, tenant.id_organizacion)
+        stmt_ubis = select(Ubicacion, Sitio.codigo, Zona.codigo, Zona.id_sitio).join(
             Zona, Ubicacion.id_zona == Zona.id,
         ).join(Sitio, Zona.id_sitio == Sitio.id).where(
             Ubicacion.id_organizacion == tenant.id_organizacion,
@@ -60,8 +64,8 @@ class ConciliadorService:
         if tenant.sitios_permitidos is not None:
             stmt_ubis = stmt_ubis.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
         ubis: Dict[str, list] = {}
-        for ubi, sitio_codigo, zona_codigo in (await db.execute(stmt_ubis)).all():
-            ubis.setdefault(ubi.codigo, []).append((ubi, sitio_codigo, zona_codigo))
+        for ubi, sitio_codigo, zona_codigo, sitio_id in (await db.execute(stmt_ubis)).all():
+            ubis.setdefault(ubi.codigo, []).append((ubi, sitio_codigo, zona_codigo, sitio_id))
 
         stmt_items = select(Item).where(
             Item.id_organizacion == tenant.id_organizacion,
@@ -75,10 +79,6 @@ class ConciliadorService:
             ReglaUbicacion.activo == True,
         )
         reglas_list = (await db.execute(stmt_reglas)).scalars().all()
-        reglas_por_ubi: Dict[str, List[ReglaUbicacion]] = {}
-        for r in reglas_list:
-            if r.id_ubicacion:
-                reglas_por_ubi.setdefault(r.id_ubicacion, []).append(r)
 
         # Saldos existentes para validar mezcla de lotes
         stmt_saldos = select(SaldoStock, Lote.numero_lote).outerjoin(
@@ -125,7 +125,7 @@ class ConciliadorService:
                 continue
 
             # Validación: Ubicación inexistente
-            candidates = [(ubi, site_code, zone_code) for ubi, site_code, zone_code in ubis.get(cod_ubi, [])
+            candidates = [(ubi, site_code, zone_code, site_id) for ubi, site_code, zone_code, site_id in ubis.get(cod_ubi, [])
                           if (not cod_sitio or site_code == cod_sitio)
                           and (not cod_zona or zone_code == cod_zona)]
             if not candidates:
@@ -154,6 +154,11 @@ class ConciliadorService:
                 ))
                 continue
             ubi = candidates[0][0]
+            id_sitio = candidates[0][3]
+            reglas_ubi = [r for r in reglas_list
+                          if (r.id_sitio is None or r.id_sitio == id_sitio)
+                          and (r.id_zona is None or r.id_zona == ubi.id_zona)
+                          and (r.id_ubicacion is None or r.id_ubicacion == ubi.id)]
 
             # Validación: Ítem inexistente
             item_obj = items.get(cod_item)
@@ -175,9 +180,23 @@ class ConciliadorService:
                 )
                 continue
 
+            try:
+                cantidad_ubicacion = convertir_cantidad(
+                    cant, item_obj.unidad_medida, ubi.unidad_capacidad, config,
+                )
+            except HTTPException as exc:
+                inconsistencias.append(Inconsistencia(
+                    id_organizacion=tenant.id_organizacion, id_importacion_job=job.id,
+                    fila_origen=fila_num, tipo_inconsistencia="unidad_incompatible",
+                    id_ubicacion=ubi.id, motivo=str(exc.detail), codigo_ubicacion=cod_ubi,
+                    codigo_item=cod_item, numero_lote=num_lote, cantidad_externa=cant,
+                    datos_crudos=raw,
+                ))
+                continue
+
             # Validación: Sobrecapacidad
             if ubi.capacidad_maxima > 0:
-                ocupacion_proyectada = ubi.ocupacion_actual + cant
+                ocupacion_proyectada = ubi.ocupacion_actual + cantidad_ubicacion
                 if ocupacion_proyectada > ubi.capacidad_maxima:
                     inconsistencias.append(
                         Inconsistencia(
@@ -187,7 +206,7 @@ class ConciliadorService:
                             tipo_inconsistencia="sobrecapacidad",
                             id_ubicacion=ubi.id,
                             motivo=(
-                                f"La cantidad externa ({cant}) agregada a la ocupación actual "
+                                f"La cantidad externa ({cantidad_ubicacion} {ubi.unidad_capacidad}) agregada a la ocupación actual "
                                 f"({ubi.ocupacion_actual}) excede la capacidad máxima ({ubi.capacidad_maxima})"
                             ),
                             codigo_ubicacion=cod_ubi,
@@ -197,9 +216,33 @@ class ConciliadorService:
                             datos_crudos=raw,
                         )
                     )
+                for regla in reglas_ubi:
+                    if regla.tipo_regla != "capacidad":
+                        continue
+                    regla_config = regla.configuracion or {}
+                    limite = ubi.capacidad_maxima
+                    if regla_config.get("maximo") is not None:
+                        limite = min(limite, Decimal(str(regla_config["maximo"])))
+                    if regla_config.get("umbral_porcentaje") is not None:
+                        limite = min(limite, ubi.capacidad_maxima *
+                                     Decimal(str(regla_config["umbral_porcentaje"])) / Decimal("100"))
+                    if ocupacion_proyectada > limite:
+                        inconsistencias.append(Inconsistencia(
+                            id_organizacion=tenant.id_organizacion,
+                            id_importacion_job=job.id, fila_origen=fila_num,
+                            tipo_inconsistencia="regla_capacidad",
+                            id_ubicacion=ubi.id,
+                            motivo=f"Regla de capacidad '{regla.codigo}' superada: límite {limite} {ubi.unidad_capacidad}",
+                            codigo_ubicacion=cod_ubi, codigo_item=cod_item,
+                            numero_lote=num_lote, cantidad_externa=cant, datos_crudos=raw,
+                        ))
 
             # Validación: Mezcla de lotes no permitida
-            if not ubi.permite_mezcla_lotes and num_lote:
+            prohibe_mezcla = (not ubi.permite_mezcla_lotes or any(
+                r.tipo_regla == "mezcla_lotes" and r.configuracion.get("permite_mezcla") is False
+                for r in reglas_ubi
+            ))
+            if prohibe_mezcla and num_lote:
                 lotes_existentes = lotes_por_ubi.get(ubi.id, set())
                 if lotes_existentes and (num_lote not in lotes_existentes):
                     inconsistencias.append(
@@ -221,12 +264,13 @@ class ConciliadorService:
                         )
                     )
 
-            # Validación: Compatibilidad de categorías por ReglaUbicacion
-            reglas_ubi = reglas_por_ubi.get(ubi.id, [])
+            # Validación: Compatibilidad por reglas aplicables.
             for r in reglas_ubi:
-                if r.tipo_regla == "items_permitidos":
-                    categorias_permitidas = r.configuracion.get("categorias_permitidas", [])
-                    if categorias_permitidas and item_obj.categoria not in categorias_permitidas:
+                if r.tipo_regla in ("items_permitidos", "categorias_permitidas"):
+                    permitidos = (r.configuracion.get("items", []) if r.tipo_regla == "items_permitidos"
+                                  else r.configuracion.get("categorias", []))
+                    valor = item_obj.codigo if r.tipo_regla == "items_permitidos" else item_obj.categoria
+                    if permitidos and valor not in permitidos:
                         inconsistencias.append(
                             Inconsistencia(
                                 id_organizacion=tenant.id_organizacion,
@@ -235,8 +279,8 @@ class ConciliadorService:
                                 tipo_inconsistencia="item_incompatible",
                                 id_ubicacion=ubi.id,
                                 motivo=(
-                                    f"El ítem '{item_obj.codigo}' pertenece a la categoría '{item_obj.categoria}', "
-                                    f"no permitida en '{cod_ubi}' (permitidas: {categorias_permitidas})"
+                                    f"El valor '{valor}' del ítem '{item_obj.codigo}' no está permitido "
+                                    f"en '{cod_ubi}' (permitidos: {permitidos})"
                                 ),
                                 codigo_ubicacion=cod_ubi,
                                 codigo_item=cod_item,
@@ -253,7 +297,7 @@ class ConciliadorService:
         total_reg = len(filas_normalizadas)
         total_inconsistencias = len(inconsistencias)
         job.registros_inconsistentes = total_inconsistencias
-        job.registros_validos = total_reg - total_inconsistencias
+        job.registros_validos = total_reg - len({inc.fila_origen for inc in inconsistencias})
         job.estado = "completado"
         job.fecha_fin = func.now()
         job.resumen = {
@@ -274,4 +318,8 @@ class ConciliadorService:
 
         await db.commit()
         await db.refresh(job)
+        await EventBus.publish(DomainEvent(
+            name="importacion.finalizada", id_organizacion=tenant.id_organizacion,
+            payload={"id_job": job.id, "inconsistencias": total_inconsistencias},
+        ))
         return job

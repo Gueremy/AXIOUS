@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant, require_permission
+from app.core.modules.registry import ModuleRegistry
 from app.core.site_access import allowed_location_ids, scope_movement_query
 from app.database import get_db
 from app.models.usuario import Usuario
@@ -24,7 +25,6 @@ from app.models.v2.sitio import Sitio
 from app.models.v2.tipo_movimiento import TipoMovimiento
 from app.models.v2.ubicacion import Ubicacion
 from app.models.v2.zona import Zona
-from app.modules.importacion.models import Inconsistencia
 from app.schemas.v2.bi import (
     BIInconsistenciaFact,
     BIItemDimension,
@@ -221,15 +221,9 @@ async def obtener_hechos_inconsistencias(
     db: AsyncSession = Depends(get_db),
 ):
     """Retorna el historial de inconsistencias de importación para análisis de calidad de inventario."""
-    stmt = (
-        select(Inconsistencia)
-        .where(Inconsistencia.id_organizacion == tenant.id_organizacion)
-        .order_by(Inconsistencia.fecha_deteccion.asc())
+    inconsistencias = await ModuleRegistry.collect_report(
+        db, tenant, "inconsistencias_bi", limit=5000,
     )
-    if tenant.sitios_permitidos is not None:
-        stmt = stmt.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
-    stmt = stmt.limit(5000)
-    res = await db.execute(stmt)
     return [
         BIInconsistenciaFact(
             id_inconsistencia=inc.id,
@@ -242,5 +236,5 @@ async def obtener_hechos_inconsistencias(
             cantidad_externa=inc.cantidad_externa,
             resuelto=inc.resuelto,
         )
-        for inc in res.scalars().all()
+        for inc in inconsistencias[:5000]
     ]

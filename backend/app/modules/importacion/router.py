@@ -14,6 +14,7 @@ from app.modules.importacion.schemas import (
     ConciliacionResultado,
     ImportacionJobRead,
     InconsistenciaRead,
+    ImportacionAPIRequest,
     MappingProfileCreate,
     MappingProfileRead,
     MappingProfileUpdate,
@@ -28,6 +29,27 @@ router = APIRouter(prefix="/importacion", tags=["V2 - Importación y Conciliaci�
                    dependencies=[Depends(require_module_enabled("importacion")),
                                  Depends(require_permission("reporte:export"))])
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
+MAPEO_DEFAULT = {
+    "codigo_sitio": "SITIO", "codigo_zona": "ZONA",
+    "codigo_ubicacion": "POSICION", "codigo_item": "SKU",
+    "numero_lote": "LOTE", "cantidad": "CANTIDAD",
+}
+
+
+async def _resolver_mapeo(db: AsyncSession, tenant: TenantContext,
+                          id_perfil: Optional[str], inline: Optional[dict]) -> dict:
+    if id_perfil and inline is not None:
+        raise HTTPException(status_code=400, detail="Indique perfil o mapeo inline, no ambos")
+    if id_perfil:
+        perfil = (await db.execute(select(MappingProfile).where(
+            MappingProfile.id == id_perfil,
+            MappingProfile.id_organizacion == tenant.id_organizacion,
+            MappingProfile.activo.is_(True),
+        ))).scalar_one_or_none()
+        if not perfil:
+            raise HTTPException(status_code=404, detail="Perfil de mapeo no encontrado")
+        return perfil.mapeo
+    return inline if inline is not None else MAPEO_DEFAULT
 
 
 # ─── Perfiles de Mapeo Configurables ─────────────────────────────────────────
@@ -132,31 +154,15 @@ async def conciliar_archivo_externo(
         )
 
     # 1. Resolver el mapeo a utilizar
-    mapeo_dict = {}
-    if id_mapping_profile:
-        stmt_m = select(MappingProfile).where(
-            MappingProfile.id == id_mapping_profile,
-            MappingProfile.id_organizacion == tenant.id_organizacion,
-        )
-        perfil = (await db.execute(stmt_m)).scalar_one_or_none()
-        if not perfil:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil de mapeo no encontrado")
-        mapeo_dict = perfil.mapeo
-    elif mapeo_json:
+    inline = None
+    if mapeo_json:
         try:
-            mapeo_dict = json.loads(mapeo_json)
+            inline = json.loads(mapeo_json)
+            if not isinstance(inline, dict):
+                raise ValueError("Se esperaba un objeto")
         except Exception:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El parámetro mapeo_json no es un JSON válido")
-    else:
-        # Mapeo por defecto según nombres estándar
-        mapeo_dict = {
-            "codigo_sitio": "SITIO",
-            "codigo_zona": "ZONA",
-            "codigo_ubicacion": "POSICION",
-            "codigo_item": "SKU",
-            "numero_lote": "LOTE",
-            "cantidad": "CANTIDAD",
-        }
+    mapeo_dict = await _resolver_mapeo(db, tenant, id_mapping_profile, inline)
 
     # 2. Parsear el archivo según extensión
     contenido = await file.read(MAX_IMPORT_BYTES + 1)
@@ -189,6 +195,34 @@ async def conciliar_archivo_externo(
     stmt_inc = select(Inconsistencia).where(Inconsistencia.id_importacion_job == job.id).order_by(Inconsistencia.fila_origen.asc())
     inconsistencias = (await db.execute(stmt_inc)).scalars().all()
 
+    return ConciliacionResultado(
+        job=ImportacionJobRead.model_validate(job),
+        inconsistencias=[InconsistenciaRead.model_validate(inc) for inc in inconsistencias],
+    )
+
+
+@router.post("/conciliar-api", response_model=ConciliacionResultado)
+async def conciliar_datos_api(
+    data: ImportacionAPIRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Concilia filas JSON recibidas de un ERP/WMS usando el mismo motor que CSV/Excel."""
+    if len(json.dumps(data.filas, ensure_ascii=False).encode("utf-8")) > MAX_IMPORT_BYTES:
+        raise HTTPException(status_code=413, detail="Los datos superan el límite de 10 MB")
+    mapeo = data.mapeo
+    if not data.id_mapping_profile and mapeo is None and "codigo_ubicacion" in data.filas[0]:
+        mapeo = {campo: campo for campo in MAPEO_DEFAULT}
+    mapeo = await _resolver_mapeo(db, tenant, data.id_mapping_profile, mapeo)
+    normalizadas = MappingService.normalizar_filas(data.filas, mapeo)
+    job = await ConciliadorService.conciliar(
+        db=db, tenant=tenant, nombre_archivo=f"api:{data.fuente}", tipo_fuente="api",
+        filas_normalizadas=normalizadas, id_mapping_profile=data.id_mapping_profile,
+    )
+    inconsistencias = (await db.execute(select(Inconsistencia).where(
+        Inconsistencia.id_importacion_job == job.id,
+        Inconsistencia.id_organizacion == tenant.id_organizacion,
+    ).order_by(Inconsistencia.fila_origen.asc()))).scalars().all()
     return ConciliacionResultado(
         job=ImportacionJobRead.model_validate(job),
         inconsistencias=[InconsistenciaRead.model_validate(inc) for inc in inconsistencias],

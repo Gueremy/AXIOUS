@@ -5,10 +5,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
-from app.core.validators.schema_validator import validar_atributos
+from app.core.validators.schema_validator import validar_atributos, validar_atributos_entidad
 from app.database import get_db
 from app.models.v2.esquema_atributos import EsquemaAtributos
 from app.models.v2.item import Item
+from app.models.v2.saldo_stock import SaldoStock
 from app.schemas.v2.common import PaginatedResponse
 from app.schemas.v2.item import ItemCreate, ItemRead, ItemUpdate
 
@@ -120,6 +121,15 @@ async def actualizar_item(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ítem no encontrado")
 
     update_dict = data.model_dump(exclude_unset=True)
+    if "unidad_medida" in update_dict and update_dict["unidad_medida"] != item.unidad_medida:
+        saldos = (await db.execute(select(func.count(SaldoStock.id)).where(
+            SaldoStock.id_item == item.id, SaldoStock.cantidad > 0,
+        ))).scalar_one()
+        if saldos:
+            raise HTTPException(status_code=409, detail="No se puede cambiar la unidad de un ítem con stock")
+    if "atributos" in update_dict:
+        update_dict["atributos"] = update_dict["atributos"] or {}
+        await validar_atributos_entidad(db, tenant.id_organizacion, "item", update_dict["atributos"])
     for field, val in update_dict.items():
         setattr(item, field, val)
 

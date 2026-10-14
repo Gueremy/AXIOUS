@@ -66,3 +66,27 @@ async def test_webhook_encrypted_queue_and_retry(monkeypatch):
         ))).scalar_one()
         assert delivery.estado == "enviado" and delivery.intentos == 2
         assert attempts == [("https://example.com/hooks", secret, event_id)] * 2
+
+        destino = (await db.execute(select(WebhookDestino).where(WebhookDestino.id == destino.id))).scalar_one()
+        destino.eventos = ["movimiento.creado", "movimiento.etapa_aprobada", "importacion.finalizada"]
+        await db.commit()
+
+    solicitud_id = str(uuid.uuid4())
+    for etapa in ("revision", "autorizacion", "revision"):
+        await encolar_evento_webhook(DomainEvent(
+            "movimiento.etapa_aprobada", org.id,
+            {"id_solicitud": solicitud_id, "etapa": etapa},
+        ))
+    job_id = str(uuid.uuid4())
+    await encolar_evento_webhook(DomainEvent("importacion.finalizada", org.id, {"id_job": job_id}))
+    await encolar_evento_webhook(DomainEvent("importacion.finalizada", org.id, {"id_job": job_id}))
+    async with AsyncSessionLocal() as db:
+        queued = (await db.execute(select(WebhookEntrega).where(
+            WebhookEntrega.id_destino == destino.id,
+        ))).scalars().all()
+        assert {(row.tipo_evento, row.id_evento) for row in queued} == {
+            ("movimiento.creado", event_id),
+            ("movimiento.etapa_aprobada", f"{solicitud_id}:revision"),
+            ("movimiento.etapa_aprobada", f"{solicitud_id}:autorizacion"),
+            ("importacion.finalizada", job_id),
+        }

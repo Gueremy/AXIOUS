@@ -4,6 +4,8 @@ Script CLI para generar organizaciones y datasets demo reproducibles (Fase 3B).
 Uso:
     python scripts/demo_generator.py --preset salmonera
     python scripts/demo_generator.py --preset general
+    python scripts/demo_generator.py --preset retail
+    python scripts/demo_generator.py --preset portuario
 """
 import argparse
 import asyncio
@@ -14,16 +16,16 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.database import AsyncSessionLocal
-from app.services.v2.demo_service import DemoGeneratorService
+from app.modules.demo.service import DemoGeneratorService
 
 
 async def main():
     parser = argparse.ArgumentParser(description="Generador de datasets demo para SalmoTrack v2")
     parser.add_argument(
         "--preset",
-        choices=["salmonera", "general"],
+        choices=["salmonera", "general", "retail", "portuario"],
         default="salmonera",
-        help="Preset de industria a generar (salmonera o general)",
+        help="Preset de industria a generar",
     )
     args = parser.parse_args()
 

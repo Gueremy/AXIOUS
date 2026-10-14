@@ -18,6 +18,8 @@ from app.models.v2.lote import Lote
 from app.models.v2.regla_ubicacion import ReglaUbicacion
 from app.models.v2.saldo_stock import SaldoStock
 from app.models.v2.ubicacion import Ubicacion
+from app.models.v2.zona import Zona
+from app.services.v2.configuracion_operativa import ConfiguracionOperativa, convertir_cantidad
 
 
 class ReglasUbicacionService:
@@ -30,36 +32,54 @@ class ReglasUbicacionService:
         item: Item,
         lote: Optional[Lote],
         cantidad: Decimal,
-    ) -> None:
+        config: ConfiguracionOperativa,
+    ) -> Decimal:
         """
         Evalúa de forma centralizada todas las reglas aplicables antes de permitir un ingreso o traslado.
         Lanza HTTPException con motivo estructurado si alguna regla no se cumple.
         """
-        if ubi_dest.unidad_capacidad != item.unidad_medida:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unidad de capacidad incompatible: ubicación usa '{ubi_dest.unidad_capacidad}' e ítem usa '{item.unidad_medida}'",
-            )
+        cantidad_ubicacion = convertir_cantidad(
+            cantidad, item.unidad_medida, ubi_dest.unidad_capacidad, config,
+        )
         # 1. Validación de Capacidad
-        nueva_ocupacion = ubi_dest.ocupacion_actual + cantidad
+        nueva_ocupacion = ubi_dest.ocupacion_actual + cantidad_ubicacion
         if nueva_ocupacion > ubi_dest.capacidad_maxima:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Capacidad superada en destino. Capacidad máxima: {ubi_dest.capacidad_maxima}, Ocupación actual: {ubi_dest.ocupacion_actual}, Ingreso solicitado: {cantidad}",
+                detail=f"Capacidad superada en destino. Capacidad máxima: {ubi_dest.capacidad_maxima}, Ocupación actual: {ubi_dest.ocupacion_actual}, Ingreso solicitado: {cantidad_ubicacion} {ubi_dest.unidad_capacidad}",
             )
 
-        # 2. Cargar reglas activas aplicables a esta ubicación (específicas de ubicación, de zona o globales de org)
+        # 2. Todas las dimensiones configuradas de una regla deben corresponder
+        # al destino; una regla de sitio nunca se convierte en regla global.
+        id_sitio = (await db.execute(select(Zona.id_sitio).where(
+            Zona.id == ubi_dest.id_zona,
+            Zona.id_organizacion == id_organizacion,
+        ))).scalar_one()
         stmt_reglas = select(ReglaUbicacion).where(
             ReglaUbicacion.id_organizacion == id_organizacion,
             ReglaUbicacion.activo == True,
-            or_(
-                ReglaUbicacion.id_ubicacion == ubi_dest.id,
-                ReglaUbicacion.id_zona == ubi_dest.id_zona,
-                (ReglaUbicacion.id_ubicacion.is_(None)) & (ReglaUbicacion.id_zona.is_(None)),
-            ),
+            or_(ReglaUbicacion.id_sitio.is_(None), ReglaUbicacion.id_sitio == id_sitio),
+            or_(ReglaUbicacion.id_zona.is_(None), ReglaUbicacion.id_zona == ubi_dest.id_zona),
+            or_(ReglaUbicacion.id_ubicacion.is_(None), ReglaUbicacion.id_ubicacion == ubi_dest.id),
         )
         res_reglas = await db.execute(stmt_reglas)
         reglas = res_reglas.scalars().all()
+
+        for regla in reglas:
+            if regla.tipo_regla != "capacidad":
+                continue
+            configuracion = regla.configuracion or {}
+            limite = ubi_dest.capacidad_maxima
+            if configuracion.get("maximo") is not None:
+                limite = min(limite, Decimal(str(configuracion["maximo"])))
+            if configuracion.get("umbral_porcentaje") is not None:
+                limite = min(limite, ubi_dest.capacidad_maxima *
+                             Decimal(str(configuracion["umbral_porcentaje"])) / Decimal("100"))
+            if nueva_ocupacion > limite:
+                raise HTTPException(status_code=400, detail=(
+                    f"Regla de capacidad '{regla.codigo}' superada en '{ubi_dest.codigo}'. "
+                    f"Límite: {limite} {ubi_dest.unidad_capacidad}"
+                ))
 
         # Determinar si se prohíbe mezcla de lotes (por configuración de la ubicación o por regla activa)
         prohibe_mezcla = not ubi_dest.permite_mezcla_lotes
@@ -105,3 +125,4 @@ class ReglasUbicacionService:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Regla violada: el ítem '{item.codigo}' no está permitido en la ubicación '{ubi_dest.codigo}'. Ítems permitidos: {items_permitidos}",
                     )
+        return cantidad_ubicacion

@@ -10,6 +10,7 @@ Punto de entrada de la aplicación FastAPI.
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError
 from sqlalchemy import select
@@ -23,12 +24,15 @@ from app.core.limiter import limiter
 from app.core.logger import log_sistema_iniciado, log_sistema_detenido
 from app.core.security import verify_token
 from app.core.dependencies_v2 import get_current_tenant
+from app.core.validators.schema_validator import AtributosValidationError
 from app.core.events.event_bus import EventBus
 from app.database import AsyncSessionLocal, engine
 from app.models import *  # noqa: F401, F403 — necesario para que Alembic detecte modelos
 from app.models.usuario import Usuario
 from app.models.v2.sitio import Sitio
 from app.integraciones.webhooks import encolar_evento_webhook
+from app.modules.importacion.events import alertar_conciliacion
+from app.services.v2.alerta_event_handlers import alertar_movimiento_fuera_horario
 from app.websockets import manager
 from app.scheduler import scheduler
 
@@ -39,6 +43,11 @@ async def lifespan(app):
     log_sistema_iniciado(version="3.0.0", entorno=settings.ENVIRONMENT)
     EventBus.subscribe("movimiento.creado", encolar_evento_webhook)
     EventBus.subscribe("movimiento.rechazado", encolar_evento_webhook)
+    EventBus.subscribe("movimiento.etapa_aprobada", encolar_evento_webhook)
+    EventBus.subscribe("movimiento.aprobado", encolar_evento_webhook)
+    EventBus.subscribe("importacion.finalizada", encolar_evento_webhook)
+    EventBus.subscribe("importacion.finalizada", alertar_conciliacion)
+    EventBus.subscribe("movimiento.creado", alertar_movimiento_fuera_horario)
     scheduler.start()
     yield
     scheduler.shutdown()
@@ -59,6 +68,11 @@ app = FastAPI(
 # ─── Middleware ───────────────────────────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(AtributosValidationError)
+async def atributos_invalidos_handler(request, exc: AtributosValidationError):
+    return JSONResponse(status_code=422, content={"detail": exc.message, "errores": exc.errors})
 
 app.add_middleware(
     CORSMiddleware,

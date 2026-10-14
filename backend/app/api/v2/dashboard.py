@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant, require_permission
+from app.core.modules.registry import ModuleRegistry
 from app.core.site_access import allowed_location_ids, scope_alert_query, scope_movement_query
 from app.database import get_db
 from app.models.v2.alerta import AlertaV2
@@ -14,13 +15,13 @@ from app.models.v2.lote import Lote
 from app.models.v2.movimiento import MovimientoV2
 from app.models.v2.saldo_stock import SaldoStock
 from app.models.v2.ubicacion import Ubicacion
-from app.modules.importacion.models import Inconsistencia
 from app.schemas.v2.dashboard import (
     DashboardKPIs,
     InconsistenciaDashboardItem,
     UbicacionOcupacionItem,
 )
 from app.services.v2.export_service import ExportServiceV2
+from app.services.v2.configuracion_operativa import obtener_configuracion
 
 router = APIRouter(prefix="/dashboard", tags=["V2 - Dashboard y Reportes"],
                    dependencies=[Depends(require_permission("dashboard:read"))])
@@ -60,6 +61,21 @@ async def obtener_kpis_supervisor(
     ubis_libres = res_ubis.ubis_libres
 
     pct_uso = float((ocup_total / cap_instalada * 100)) if cap_instalada > 0 else 0.0
+    stmt_por_unidad = select(
+        Ubicacion.unidad_capacidad,
+        func.sum(Ubicacion.capacidad_maxima),
+        func.sum(Ubicacion.ocupacion_actual),
+    ).where(Ubicacion.id_organizacion == org_id, Ubicacion.activo.is_(True))
+    if tenant.sitios_permitidos is not None:
+        stmt_por_unidad = stmt_por_unidad.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
+    stmt_por_unidad = stmt_por_unidad.group_by(Ubicacion.unidad_capacidad)
+    capacidad_por_unidad = {}
+    ocupacion_por_unidad = {}
+    porcentaje_por_unidad = {}
+    for unidad, capacidad, ocupacion in (await db.execute(stmt_por_unidad)).all():
+        capacidad_por_unidad[unidad] = Decimal(str(capacidad))
+        ocupacion_por_unidad[unidad] = Decimal(str(ocupacion))
+        porcentaje_por_unidad[unidad] = round(float(ocupacion / capacidad * 100), 2) if capacidad else 0.0
 
     # 2. Stock total consolidado
     stmt_stock = select(func.coalesce(func.sum(SaldoStock.cantidad), 0)).where(
@@ -68,15 +84,17 @@ async def obtener_kpis_supervisor(
     if tenant.sitios_permitidos is not None:
         stmt_stock = stmt_stock.where(SaldoStock.id_ubicacion.in_(allowed_location_ids(tenant)))
     stock_total = Decimal(str((await db.execute(stmt_stock)).scalar_one()))
-
-    # 3. Cantidad de inconsistencias no resueltas
-    stmt_inc = select(func.count(Inconsistencia.id)).where(
-        Inconsistencia.id_organizacion == org_id,
-        Inconsistencia.resuelto == False,
+    stmt_stock_unidad = select(SaldoStock.unidad_medida, func.sum(SaldoStock.cantidad)).where(
+        SaldoStock.id_organizacion == org_id,
     )
     if tenant.sitios_permitidos is not None:
-        stmt_inc = stmt_inc.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
-    cant_inconsistencias = (await db.execute(stmt_inc)).scalar_one()
+        stmt_stock_unidad = stmt_stock_unidad.where(SaldoStock.id_ubicacion.in_(allowed_location_ids(tenant)))
+    stock_por_unidad = {unidad: Decimal(str(cantidad)) for unidad, cantidad in (
+        await db.execute(stmt_stock_unidad.group_by(SaldoStock.unidad_medida))
+    ).all()}
+
+    # 3. Cantidad de inconsistencias no resueltas
+    cant_inconsistencias = await ModuleRegistry.collect_report(db, tenant, "inconsistencias_count")
 
     # 4. Total ítems y alertas activas
     stmt_items = select(func.count(Item.id)).where(Item.id_organizacion == org_id, Item.activo == True)
@@ -98,6 +116,11 @@ async def obtener_kpis_supervisor(
         total_ubicaciones=total_ubis,
         total_items=total_items,
         alertas_activas=cant_alertas,
+        capacidad_por_unidad=capacidad_por_unidad,
+        ocupacion_por_unidad=ocupacion_por_unidad,
+        porcentaje_por_unidad=porcentaje_por_unidad,
+        stock_por_unidad=stock_por_unidad,
+        totales_comparables=len(capacidad_por_unidad) <= 1 and len(stock_por_unidad) <= 1,
     )
 
 
@@ -115,6 +138,7 @@ async def listar_ocupacion_ubicaciones(
     if tenant.sitios_permitidos is not None:
         stmt = stmt.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
     ubis = (await db.execute(stmt)).scalars().all()
+    umbrales = (await obtener_configuracion(db, tenant.id_organizacion)).umbrales_color
     resultado = []
     for u in ubis:
         pct = float((u.ocupacion_actual / u.capacidad_maxima * 100)) if u.capacidad_maxima > 0 else 0.0
@@ -126,7 +150,7 @@ async def listar_ocupacion_ubicaciones(
                 ocupacion_actual=u.ocupacion_actual,
                 porcentaje_ocupacion=round(pct, 2),
                 unidad_capacidad=u.unidad_capacidad,
-                estado="critica" if pct >= 90.0 else ("alerta" if pct >= 75.0 else "optima"),
+                estado="critica" if pct >= umbrales.critica else ("alerta" if pct >= umbrales.alerta else "optima"),
             )
         )
     return resultado
@@ -142,17 +166,11 @@ async def consultar_inconsistencias_recientes(
     Retorna inconsistencias recientes con referencia de ubicación
     para que el supervisor pueda navegar directamente hacia ella.
     """
-    stmt = (
-        select(Inconsistencia)
-        .where(Inconsistencia.id_organizacion == tenant.id_organizacion)
-        .order_by(Inconsistencia.fecha_deteccion.desc())
+    inconsistencias = await ModuleRegistry.collect_report(
+        db, tenant, "inconsistencias_recientes", limit=limit,
     )
-    if tenant.sitios_permitidos is not None:
-        stmt = stmt.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
-    stmt = stmt.limit(limit)
-    res = await db.execute(stmt)
     items = []
-    for inc in res.scalars().all():
+    for inc in inconsistencias[:limit]:
         items.append(
             InconsistenciaDashboardItem(
                 id=inc.id,
@@ -182,7 +200,7 @@ async def _obtener_datos_movimientos_export(db: AsyncSession, tenant: TenantCont
         .where(MovimientoV2.id_organizacion == tenant.id_organizacion)
         .order_by(MovimientoV2.fecha_hora.desc())
     )
-    stmt = scope_movement_query(stmt, tenant, MovimientoV2).limit(1000)
+    stmt = scope_movement_query(stmt, tenant, MovimientoV2)
     res = await db.execute(stmt)
     filas = []
     for mov, cod_item, num_lote in res.all():

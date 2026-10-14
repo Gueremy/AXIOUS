@@ -1,6 +1,6 @@
 from decimal import Decimal
-from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+from typing import Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DashboardKPIs(BaseModel):
@@ -13,6 +13,11 @@ class DashboardKPIs(BaseModel):
     total_ubicaciones: int
     total_items: int
     alertas_activas: int
+    capacidad_por_unidad: Dict[str, Decimal] = Field(default_factory=dict)
+    ocupacion_por_unidad: Dict[str, Decimal] = Field(default_factory=dict)
+    porcentaje_por_unidad: Dict[str, float] = Field(default_factory=dict)
+    stock_por_unidad: Dict[str, Decimal] = Field(default_factory=dict)
+    totales_comparables: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

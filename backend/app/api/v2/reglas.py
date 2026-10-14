@@ -1,4 +1,5 @@
 from typing import List, Optional
+from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,27 @@ from app.schemas.v2.regla_ubicacion import (
 )
 
 router = APIRouter(prefix="/reglas", tags=["V2 - Reglas de Ubicación"])
+
+
+def _validar_configuracion(tipo: str, config: dict) -> None:
+    if tipo == "capacidad":
+        for campo in ("maximo", "umbral_porcentaje"):
+            if campo not in config:
+                continue
+            try:
+                valor = Decimal(str(config[campo]))
+            except (InvalidOperation, ValueError, TypeError):
+                raise HTTPException(status_code=422, detail=f"{campo} debe ser numérico")
+            if not valor.is_finite() or valor < 0 or (campo == "umbral_porcentaje" and valor > 100):
+                raise HTTPException(status_code=422, detail=f"{campo} fuera de rango")
+    elif tipo in ("items_permitidos", "categorias_permitidas"):
+        campo = "items" if tipo == "items_permitidos" else "categorias"
+        if campo in config and (not isinstance(config[campo], list) or
+                                not all(isinstance(x, str) for x in config[campo])):
+            raise HTTPException(status_code=422, detail=f"{campo} debe ser una lista de códigos")
+    elif tipo == "mezcla_lotes" and "permite_mezcla" in config:
+        if not isinstance(config["permite_mezcla"], bool):
+            raise HTTPException(status_code=422, detail="permite_mezcla debe ser booleano")
 
 
 def _scope_reglas(stmt, tenant: TenantContext):
@@ -86,6 +108,7 @@ async def crear_regla(
     if not tenant.tiene_permiso("rbac:manage") and tenant.rol_codigo not in ("super_admin", "admin_sede"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso insuficiente para configurar reglas")
     await _validar_alcance_regla(db, tenant, data.id_sitio, data.id_zona, data.id_ubicacion)
+    _validar_configuracion(data.tipo_regla, data.configuracion)
 
     regla = ReglaUbicacion(
         id_organizacion=tenant.id_organizacion,
@@ -133,6 +156,8 @@ async def actualizar_regla(
                                 update_dict.get("id_sitio", regla.id_sitio),
                                 update_dict.get("id_zona", regla.id_zona),
                                 update_dict.get("id_ubicacion", regla.id_ubicacion))
+    if "configuracion" in update_dict and update_dict["configuracion"] is not None:
+        _validar_configuracion(update_dict.get("tipo_regla", regla.tipo_regla), update_dict["configuracion"])
     for field, val in update_dict.items():
         setattr(regla, field, val)
 

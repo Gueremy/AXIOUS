@@ -72,7 +72,9 @@ class WebhookDispatcher:
 
 async def encolar_evento_webhook(event: DomainEvent) -> None:
     """Persiste una entrega por destino tras confirmarse el evento de dominio."""
-    event_id = str(event.payload.get("id_movimiento") or event.payload.get("id_solicitud") or uuid.uuid4())
+    event_id = str(event.payload.get("id_movimiento") or event.payload.get("id_solicitud") or event.payload.get("id_job") or uuid.uuid4())
+    if event.name == "movimiento.etapa_aprobada":
+        event_id = f"{event_id}:{event.payload.get('etapa')}"
     async with AsyncSessionLocal() as db:
         destinos = (await db.execute(select(WebhookDestino).where(
             WebhookDestino.id_organizacion == event.id_organizacion,

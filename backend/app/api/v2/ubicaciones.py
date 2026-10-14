@@ -5,13 +5,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant
-from app.core.validators.schema_validator import validar_atributos
+from app.core.validators.schema_validator import validar_atributos, validar_atributos_entidad
 from app.database import get_db
 from app.models.v2.esquema_atributos import EsquemaAtributos
 from app.models.v2.ubicacion import Ubicacion
 from app.models.v2.zona import Zona
 from app.schemas.v2.common import PaginatedResponse
 from app.schemas.v2.ubicacion import UbicacionCreate, UbicacionRead, UbicacionUpdate
+from app.services.v2.configuracion_operativa import obtener_configuracion, convertir_cantidad
 
 router = APIRouter(prefix="/ubicaciones", tags=["V2 - Ubicaciones"])
 
@@ -143,6 +144,22 @@ async def actualizar_ubicacion(
         await require_zone_access(db, tenant, ubi.id_zona)
 
     update_dict = data.model_dump(exclude_unset=True)
+    nueva_unidad = update_dict.get("unidad_capacidad", ubi.unidad_capacidad)
+    if nueva_unidad != ubi.unidad_capacidad:
+        config = await obtener_configuracion(db, tenant.id_organizacion)
+        ocupacion_convertida = convertir_cantidad(
+            ubi.ocupacion_actual, ubi.unidad_capacidad, nueva_unidad, config,
+        )
+        if "capacidad_maxima" not in update_dict:
+            update_dict["capacidad_maxima"] = convertir_cantidad(
+                ubi.capacidad_maxima, ubi.unidad_capacidad, nueva_unidad, config,
+            )
+        ubi.ocupacion_actual = ocupacion_convertida
+    if update_dict.get("capacidad_maxima", ubi.capacidad_maxima) < ubi.ocupacion_actual:
+        raise HTTPException(status_code=400, detail="La capacidad no puede ser menor a la ocupación actual")
+    if "atributos" in update_dict:
+        update_dict["atributos"] = update_dict["atributos"] or {}
+        await validar_atributos_entidad(db, tenant.id_organizacion, "ubicacion", update_dict["atributos"])
     for field, val in update_dict.items():
         setattr(ubi, field, val)
 

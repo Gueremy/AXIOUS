@@ -29,7 +29,7 @@ async def test_v2_documentos_jsonb_y_migracion_final():
     _require_test_postgres()
     async with AsyncSessionLocal() as db:
         revision = (await db.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
-        assert revision == "b4c5d6e7f809"
+        assert revision == "c5d6e7f80910"
         columns = (await db.execute(text("""
             SELECT table_name, column_name, data_type FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name LIKE 'v2_%'
@@ -110,3 +110,60 @@ async def test_aprobacion_concurrente_y_constraints_postgres():
         with pytest.raises(IntegrityError):
             await db.flush()
         await db.rollback()
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_flujo_jsonb_multietapa_y_ocupacion_convertida_postgres():
+    _require_test_postgres()
+    suffix = uuid.uuid4().hex[:12]
+    org = Organizacion(id=str(uuid.uuid4()), nombre="Flujo por etapas", slug=f"pg-flow-{suffix}")
+    user = Usuario(id=str(uuid.uuid4()), nombre="Aprobador", email=f"pg-flow-{suffix}@example.cl",
+                   password_hash="unused", codigo_empleado=f"PF-{suffix}",
+                   rol="super_admin", id_organizacion=org.id, activo=True)
+    site = Sitio(id=str(uuid.uuid4()), id_organizacion=org.id, codigo="S", nombre="Sitio", tipo="bodega")
+    zone = Zona(id=str(uuid.uuid4()), id_organizacion=org.id, id_sitio=site.id,
+                codigo="Z", nombre="Zona", tipo="bodega")
+    location = Ubicacion(id=str(uuid.uuid4()), id_organizacion=org.id, id_zona=zone.id,
+                         codigo="U", capacidad_maxima=Decimal("2"), unidad_capacidad="t",
+                         ocupacion_actual=Decimal("0"))
+    item = Item(id=str(uuid.uuid4()), id_organizacion=org.id, codigo="I", nombre="Item",
+                categoria="general", unidad_medida="kg")
+    kind = TipoMovimiento(id=str(uuid.uuid4()), id_organizacion=org.id, codigo="ING",
+                          nombre="Ingreso", efecto_stock="entrada", requiere_destino=True,
+                          requiere_aprobacion=True,
+                          flujo_aprobacion={"etapas": [{"codigo": "revision", "roles": []},
+                                                        {"codigo": "autorizacion", "roles": []}],
+                                             "estado_aprobado": "confirmada",
+                                             "estado_rechazado": "denegada"})
+    async with AsyncSessionLocal() as db:
+        db.add(org)
+        await db.flush()
+        db.add_all([user, site, item, kind])
+        await db.flush()
+        db.add(zone)
+        await db.flush()
+        db.add(location)
+        await db.commit()
+
+    tenant = TenantContext(user, org, "super_admin", {"movimiento:create", "movimiento:approve"}, None)
+    async with AsyncSessionLocal() as db:
+        request = await MovimientoService.crear_solicitud(
+            db, tenant, kind.id, item.id, Decimal("500"), "kg",
+            id_ubicacion_destino=location.id,
+        )
+        assert request.estado == "revision"
+        request_id = request.id
+    async with AsyncSessionLocal() as db:
+        siguiente = await MovimientoService.aprobar_solicitud(db, tenant, request_id)
+        assert isinstance(siguiente, SolicitudMovimiento)
+        assert siguiente.estado == "autorizacion"
+    async with AsyncSessionLocal() as db:
+        movimiento = await MovimientoService.aprobar_solicitud(db, tenant, request_id)
+        assert isinstance(movimiento, MovimientoV2)
+    async with AsyncSessionLocal() as db:
+        stored_location = (await db.execute(select(Ubicacion).where(Ubicacion.id == location.id))).scalar_one()
+        stored_request = (await db.execute(select(SolicitudMovimiento).where(
+            SolicitudMovimiento.id == request_id,
+        ))).scalar_one()
+        assert stored_location.ocupacion_actual == Decimal("0.5")
+        assert stored_request.estado == "confirmada"

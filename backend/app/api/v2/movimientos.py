@@ -21,6 +21,7 @@ from app.schemas.v2.movimiento import (
     SolicitudRechazar,
     TipoMovimientoCreate,
     TipoMovimientoRead,
+    TipoMovimientoUpdate,
 )
 from app.schemas.v2.sync import SyncBatchRequest, SyncBatchResponse
 from app.services.v2.movimiento_service import MovimientoService
@@ -73,9 +74,49 @@ async def crear_tipo_movimiento(
         requiere_origen=data.requiere_origen,
         requiere_destino=data.requiere_destino,
         requiere_aprobacion=data.requiere_aprobacion,
+        flujo_aprobacion=data.flujo_aprobacion.model_dump() if data.flujo_aprobacion else {},
         activo=True,
     )
     db.add(tipo)
+    await db.commit()
+    await db.refresh(tipo)
+    return tipo
+
+
+@router.patch("/tipos/{id_tipo}", response_model=TipoMovimientoRead)
+async def actualizar_tipo_movimiento(
+    id_tipo: str,
+    data: TipoMovimientoUpdate,
+    tenant: TenantContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    if not tenant.tiene_permiso("rbac:manage"):
+        raise HTTPException(status_code=403, detail="Permiso insuficiente")
+    tipo = (await db.execute(select(TipoMovimiento).where(
+        TipoMovimiento.id == id_tipo,
+        TipoMovimiento.id_organizacion == tenant.id_organizacion,
+    ).with_for_update())).scalar_one_or_none()
+    if tipo is None:
+        raise HTTPException(status_code=404, detail="Tipo de movimiento no encontrado")
+    if data.flujo_aprobacion is not None or data.requiere_aprobacion is not None:
+        pendientes = (await db.execute(select(func.count(SolicitudMovimiento.id)).where(
+            SolicitudMovimiento.id_organizacion == tenant.id_organizacion,
+            SolicitudMovimiento.id_tipo_movimiento == id_tipo,
+            SolicitudMovimiento.fecha_resolucion.is_(None),
+            SolicitudMovimiento.estado != "aprobada",
+        ))).scalar_one()
+        if pendientes:
+            raise HTTPException(status_code=409, detail="Resuelva las solicitudes pendientes antes de cambiar el flujo")
+    if data.nombre is not None:
+        tipo.nombre = data.nombre
+    if data.requiere_aprobacion is not None:
+        tipo.requiere_aprobacion = data.requiere_aprobacion
+    if data.flujo_aprobacion is not None:
+        tipo.flujo_aprobacion = data.flujo_aprobacion.model_dump()
+    if (tipo.flujo_aprobacion or {}).get("etapas") and not tipo.requiere_aprobacion:
+        raise HTTPException(status_code=422, detail="Las etapas requieren aprobación activada")
+    if data.activo is not None:
+        tipo.activo = data.activo
     await db.commit()
     await db.refresh(tipo)
     return tipo
@@ -139,7 +180,7 @@ async def listar_solicitudes(
     return PaginatedResponse(items=items, total=total, page=page, size=size, pages=pages)
 
 
-@router.patch("/solicitudes/{id_solicitud}/aprobar", response_model=MovimientoV2Read)
+@router.patch("/solicitudes/{id_solicitud}/aprobar", response_model=MovimientoV2Read | SolicitudMovimientoRead)
 async def aprobar_solicitud(
     id_solicitud: str,
     tenant: TenantContext = Depends(get_current_tenant),

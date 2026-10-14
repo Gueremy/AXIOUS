@@ -16,10 +16,12 @@ from app.api.v2.modulos import router as modulos_router
 from app.modules.pack_salmonero import router as pack_salmonero_router
 from app.modules.picking import router as picking_router
 from app.api.v2.layout import router as layout_router
-from app.api.v2.demo import router as demo_router
+from app.modules.demo.router import router as demo_router
 from app.integraciones import router as integraciones_router
 from app.api.v2.usuarios import router as usuarios_router
 from app.api.v2.roles import router as roles_router
+from app.api.v2.configuracion_operativa import router as configuracion_operativa_router
+from app.api.v2.exportaciones import router as exportaciones_router
 
 api_v2_router = APIRouter(prefix="/api/v2")
 
@@ -43,3 +45,5 @@ api_v2_router.include_router(demo_router)
 api_v2_router.include_router(integraciones_router)
 api_v2_router.include_router(usuarios_router)
 api_v2_router.include_router(roles_router)
+api_v2_router.include_router(configuracion_operativa_router)
+api_v2_router.include_router(exportaciones_router)

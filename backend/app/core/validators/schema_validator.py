@@ -39,3 +39,20 @@ def validar_atributos(atributos: Dict[str, Any], schema_json: Dict[str, Any]) ->
     if errors:
         msg = f"Validación de atributos fallida: {errors[0]['mensaje']} en '{errors[0]['campo']}'"
         raise AtributosValidationError(msg, errors=errors)
+
+
+async def validar_atributos_entidad(db, id_organizacion: str, entidad: str,
+                                   atributos: Dict[str, Any]) -> None:
+    """Aplica el esquema activo más reciente también durante las actualizaciones."""
+    from sqlalchemy import select
+    from app.models.v2.esquema_atributos import EsquemaAtributos
+
+    esquema = (await db.execute(
+        select(EsquemaAtributos).where(
+            EsquemaAtributos.id_organizacion == id_organizacion,
+            EsquemaAtributos.entidad == entidad,
+            EsquemaAtributos.activo.is_(True),
+        ).order_by(EsquemaAtributos.version.desc())
+    )).scalars().first()
+    if esquema and esquema.schema_json:
+        validar_atributos(atributos, esquema.schema_json)

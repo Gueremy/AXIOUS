@@ -24,7 +24,18 @@ from app.models.v2.solicitud_movimiento import SolicitudMovimiento
 from app.models.v2.tipo_movimiento import TipoMovimiento
 from app.models.v2.ubicacion import Ubicacion
 from app.services.v2.reglas_service import ReglasUbicacionService
+from app.services.v2.configuracion_operativa import obtener_configuracion, convertir_cantidad
 from app.core.events.event_bus import DomainEvent, EventBus
+
+
+def _etapas(tipo: TipoMovimiento) -> list[dict]:
+    return (tipo.flujo_aprobacion or {}).get("etapas") or [{"codigo": "pendiente", "roles": []}]
+
+
+def _exigir_rol_etapa(tenant: TenantContext, etapa: dict) -> None:
+    roles = etapa.get("roles") or []
+    if roles and tenant.rol_codigo not in roles and tenant.rol_codigo != "super_admin":
+        raise HTTPException(status_code=403, detail="Su rol no puede resolver esta etapa de aprobación")
 
 
 class MovimientoService:
@@ -49,10 +60,10 @@ class MovimientoService:
         if cantidad <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La cantidad debe ser mayor a cero")
 
-        # Fase 2D: Si el pack salmonero está activo para la organización, exigir campos regulatorios
+        # Los módulos habilitados registran sus propias validaciones.
         from app.core.modules.registry import ModuleRegistry
         await ModuleRegistry.validate_movement_attributes(
-            db, tenant.id_organizacion, "pack_salmonero", atributos or {},
+            db, tenant.id_organizacion, atributos or {},
         )
 
         # 1. Validar Tipo de Movimiento
@@ -148,7 +159,7 @@ class MovimientoService:
             id_usuario_solicitante=tenant.usuario.id,
             cantidad=cantidad,
             unidad_medida=unidad_medida,
-            estado="pendiente",
+            estado=_etapas(tipo)[0]["codigo"] if tipo.requiere_aprobacion else "pendiente",
             observaciones=observaciones,
             uuid_local=uuid_local,
             atributos=atributos or {},
@@ -159,7 +170,7 @@ class MovimientoService:
         # Si el tipo no requiere aprobación, se aprueba y ejecuta inmediatamente
         movimiento = None
         if not tipo.requiere_aprobacion:
-            solicitud.estado = "aprobada"
+            solicitud.estado = (tipo.flujo_aprobacion or {}).get("estado_aprobado", "aprobada")
             solicitud.id_usuario_aprobador = tenant.usuario.id
             solicitud.fecha_resolucion = func.now()
             movimiento = await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
@@ -191,7 +202,11 @@ class MovimientoService:
             if location_id:
                 await require_location_access(db, tenant, location_id)
 
-        if solicitud.estado != "pendiente":
+        stmt_tipo = select(TipoMovimiento).where(TipoMovimiento.id == solicitud.id_tipo_movimiento)
+        tipo = (await db.execute(stmt_tipo)).scalar_one()
+        etapas = _etapas(tipo)
+        codigos = [etapa["codigo"] for etapa in etapas]
+        if solicitud.estado not in codigos:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"La solicitud ya se encuentra en estado '{solicitud.estado}'",
@@ -200,16 +215,34 @@ class MovimientoService:
         if tenant.rol_codigo == "jefe_bodega" and solicitud.id_usuario_solicitante == tenant.usuario.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puede aprobar un movimiento propio")
 
-        stmt_tipo = select(TipoMovimiento).where(TipoMovimiento.id == solicitud.id_tipo_movimiento)
-        tipo = (await db.execute(stmt_tipo)).scalar_one()
+        indice = codigos.index(solicitud.estado)
+        _exigir_rol_etapa(tenant, etapas[indice])
+        if indice + 1 < len(etapas):
+            solicitud.estado = etapas[indice + 1]["codigo"]
+            db.add(LogAuditoria(
+                id_usuario=tenant.usuario.id, accion="ETAPA_MOVIMIENTO_APROBADA",
+                entidad_afectada="v2_solicitud_movimiento", id_entidad=solicitud.id,
+                detalles={"etapa": codigos[indice], "siguiente": solicitud.estado},
+            ))
+            await db.commit()
+            await db.refresh(solicitud)
+            await EventBus.publish(DomainEvent(
+                name="movimiento.etapa_aprobada", id_organizacion=tenant.id_organizacion,
+                payload={"id_solicitud": solicitud.id, "etapa": codigos[indice]},
+            ))
+            return solicitud
 
-        solicitud.estado = "aprobada"
+        solicitud.estado = (tipo.flujo_aprobacion or {}).get("estado_aprobado", "aprobada")
         solicitud.id_usuario_aprobador = tenant.usuario.id
         solicitud.fecha_resolucion = func.now()
         movimiento = await MovimientoService._ejecutar_confirmacion_atomica(db, tenant, solicitud, tipo)
 
         await db.commit()
         await db.refresh(movimiento)
+        await EventBus.publish(DomainEvent(
+            name="movimiento.aprobado", id_organizacion=tenant.id_organizacion,
+            payload={"id_solicitud": solicitud.id, "id_movimiento": movimiento.id},
+        ))
         await MovimientoService.publicar_movimiento_confirmado(db, tenant, movimiento)
         return movimiento
 
@@ -232,13 +265,19 @@ class MovimientoService:
             if location_id:
                 await require_location_access(db, tenant, location_id)
 
-        if solicitud.estado != "pendiente":
+        tipo = (await db.execute(select(TipoMovimiento).where(
+            TipoMovimiento.id == solicitud.id_tipo_movimiento,
+        ))).scalar_one()
+        etapas = _etapas(tipo)
+        etapa = next((item for item in etapas if item["codigo"] == solicitud.estado), None)
+        if etapa is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"No se puede rechazar una solicitud en estado '{solicitud.estado}'",
             )
 
-        solicitud.estado = "rechazada"
+        _exigir_rol_etapa(tenant, etapa)
+        solicitud.estado = (tipo.flujo_aprobacion or {}).get("estado_rechazado", "rechazada")
         solicitud.motivo_rechazo = motivo_rechazo
         solicitud.id_usuario_aprobador = tenant.usuario.id
         solicitud.fecha_resolucion = func.now()
@@ -280,6 +319,7 @@ class MovimientoService:
 
         ubi_orig = ubis_map.get(solicitud.id_ubicacion_origen)
         ubi_dest = ubis_map.get(solicitud.id_ubicacion_destino)
+        config = await obtener_configuracion(db, tenant.id_organizacion)
 
         # 2. Descuento en Origen (si aplica salida o traslado)
         if efecto in ("salida", "traslado"):
@@ -302,7 +342,10 @@ class MovimientoService:
                 )
 
             saldo_orig.cantidad -= solicitud.cantidad
-            ubi_orig.ocupacion_actual = max(Decimal("0.0"), ubi_orig.ocupacion_actual - solicitud.cantidad)
+            cantidad_origen = convertir_cantidad(
+                solicitud.cantidad, solicitud.unidad_medida, ubi_orig.unidad_capacidad, config,
+            )
+            ubi_orig.ocupacion_actual = max(Decimal("0.0"), ubi_orig.ocupacion_actual - cantidad_origen)
 
         # 3. Acreditación en Destino (si aplica entrada o traslado)
         if efecto in ("entrada", "traslado"):
@@ -319,13 +362,14 @@ class MovimientoService:
                 lote_obj = (await db.execute(stmt_lt)).scalar_one_or_none()
 
             # Evaluación centralizada de reglas de ubicación
-            await ReglasUbicacionService.evaluar_ingreso(
+            cantidad_destino = await ReglasUbicacionService.evaluar_ingreso(
                 db=db,
                 id_organizacion=tenant.id_organizacion,
                 ubi_dest=ubi_dest,
                 item=item_obj,
                 lote=lote_obj,
                 cantidad=solicitud.cantidad,
+                config=config,
             )
 
             # Buscar o crear saldo en destino
@@ -349,7 +393,7 @@ class MovimientoService:
                 )
                 db.add(saldo_dest)
 
-            ubi_dest.ocupacion_actual += solicitud.cantidad
+            ubi_dest.ocupacion_actual += cantidad_destino
 
         # 4. Registrar Movimiento Inmutable
         movimiento = MovimientoV2(

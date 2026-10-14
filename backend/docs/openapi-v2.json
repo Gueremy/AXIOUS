@@ -4209,6 +4209,63 @@
         ]
       }
     },
+    "/api/v2/movimientos/tipos/{id_tipo}": {
+      "patch": {
+        "tags": [
+          "V2 - Movimientos"
+        ],
+        "summary": "Actualizar Tipo Movimiento",
+        "operationId": "actualizar_tipo_movimiento_api_v2_movimientos_tipos__id_tipo__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_tipo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Tipo"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TipoMovimientoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipoMovimientoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v2/movimientos/solicitudes": {
       "post": {
         "tags": [
@@ -4364,7 +4421,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MovimientoV2Read"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MovimientoV2Read"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SolicitudMovimientoRead"
+                    }
+                  ],
+                  "title": "Response Aprobar Solicitud Api V2 Movimientos Solicitudes  Id Solicitud  Aprobar Patch"
                 }
               }
             }
@@ -5512,6 +5577,53 @@
         ]
       }
     },
+    "/api/v2/importacion/conciliar-api": {
+      "post": {
+        "tags": [
+          "V2 - Importación y Conciliación ERP/WMS"
+        ],
+        "summary": "Conciliar Datos Api",
+        "description": "Concilia filas JSON recibidas de un ERP/WMS usando el mismo motor que CSV/Excel.",
+        "operationId": "conciliar_datos_api_api_v2_importacion_conciliar_api_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportacionAPIRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacionResultado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v2/importacion/jobs": {
       "get": {
         "tags": [
@@ -6528,11 +6640,11 @@
             "required": false,
             "schema": {
               "type": "string",
-              "description": "Preset: salmonera o general",
+              "description": "Preset: salmonera, general, retail o portuario",
               "default": "salmonera",
               "title": "Preset"
             },
-            "description": "Preset: salmonera o general"
+            "description": "Preset: salmonera, general, retail o portuario"
           },
           {
             "name": "en_organizacion_actual",
@@ -7146,6 +7258,158 @@
         }
       }
     },
+    "/api/v2/configuracion-operativa": {
+      "get": {
+        "tags": [
+          "V2 - Configuración operativa"
+        ],
+        "summary": "Consultar Configuracion",
+        "operationId": "consultar_configuracion_api_v2_configuracion_operativa_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfiguracionOperativa"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "V2 - Configuración operativa"
+        ],
+        "summary": "Actualizar Configuracion",
+        "operationId": "actualizar_configuracion_api_v2_configuracion_operativa_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfiguracionOperativaUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfiguracionOperativa"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/exportaciones/{recurso}/{formato}": {
+      "get": {
+        "tags": [
+          "V2 - Exportaciones"
+        ],
+        "summary": "Exportar Recurso",
+        "operationId": "exportar_recurso_api_v2_exportaciones__recurso___formato__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "recurso",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Recurso"
+            }
+          },
+          {
+            "name": "formato",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "csv",
+                "excel",
+                "pdf"
+              ],
+              "type": "string",
+              "title": "Formato"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "default": 1000,
+              "title": "Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ws/health": {
       "get": {
         "tags": [
@@ -7701,6 +7965,73 @@
         ],
         "title": "ConectorTestRequest"
       },
+      "ConfiguracionOperativa": {
+        "properties": {
+          "umbrales_color": {
+            "$ref": "#/components/schemas/UmbralesColor"
+          },
+          "paleta_colores": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Paleta Colores"
+          },
+          "unidades": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/UnidadConfig-Output"
+            },
+            "type": "object",
+            "title": "Unidades"
+          }
+        },
+        "type": "object",
+        "title": "ConfiguracionOperativa"
+      },
+      "ConfiguracionOperativaUpdate": {
+        "properties": {
+          "umbrales_color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UmbralesColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paleta_colores": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paleta Colores"
+          },
+          "unidades": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/UnidadConfig-Input"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unidades"
+          }
+        },
+        "type": "object",
+        "title": "ConfiguracionOperativaUpdate"
+      },
       "ContainerCreate": {
         "properties": {
           "codigo": {
@@ -7847,6 +8178,42 @@
           "alertas_activas": {
             "type": "integer",
             "title": "Alertas Activas"
+          },
+          "capacidad_por_unidad": {
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+            },
+            "type": "object",
+            "title": "Capacidad Por Unidad"
+          },
+          "ocupacion_por_unidad": {
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+            },
+            "type": "object",
+            "title": "Ocupacion Por Unidad"
+          },
+          "porcentaje_por_unidad": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Porcentaje Por Unidad"
+          },
+          "stock_por_unidad": {
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+            },
+            "type": "object",
+            "title": "Stock Por Unidad"
+          },
+          "totales_comparables": {
+            "type": "boolean",
+            "title": "Totales Comparables",
+            "default": true
           }
         },
         "type": "object",
@@ -7945,6 +8312,29 @@
         ],
         "title": "EsquemaAtributosRead"
       },
+      "EtapaAprobacion": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "title": "Codigo"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo"
+        ],
+        "title": "EtapaAprobacion"
+      },
       "EvaluarAlertasResultado": {
         "properties": {
           "reglas_evaluadas": {
@@ -8032,6 +8422,34 @@
         ],
         "title": "EvolucionItem",
         "description": "Evolución de movimientos por día — formato Recharts LineChart."
+      },
+      "FlujoAprobacion": {
+        "properties": {
+          "etapas": {
+            "items": {
+              "$ref": "#/components/schemas/EtapaAprobacion"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Etapas"
+          },
+          "estado_aprobado": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Estado Aprobado",
+            "default": "aprobada"
+          },
+          "estado_rechazado": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Estado Rechazado",
+            "default": "rechazada"
+          }
+        },
+        "type": "object",
+        "title": "FlujoAprobacion"
       },
       "ForgotPasswordRequest": {
         "properties": {
@@ -8202,6 +8620,57 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImportacionAPIRequest": {
+        "properties": {
+          "fuente": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Fuente"
+          },
+          "filas": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Filas"
+          },
+          "id_mapping_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Mapping Profile"
+          },
+          "mapeo": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapeo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fuente",
+          "filas"
+        ],
+        "title": "ImportacionAPIRequest"
       },
       "ImportacionJobRead": {
         "properties": {
@@ -12421,6 +12890,16 @@
             "type": "boolean",
             "title": "Requiere Aprobacion",
             "default": false
+          },
+          "flujo_aprobacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlujoAprobacion"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -12465,6 +12944,11 @@
             "type": "boolean",
             "title": "Requiere Aprobacion"
           },
+          "flujo_aprobacion": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Flujo Aprobacion"
+          },
           "activo": {
             "type": "boolean",
             "title": "Activo"
@@ -12483,6 +12967,56 @@
           "activo"
         ],
         "title": "TipoMovimientoRead"
+      },
+      "TipoMovimientoUpdate": {
+        "properties": {
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "requiere_aprobacion": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requiere Aprobacion"
+          },
+          "flujo_aprobacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlujoAprobacion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "activo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activo"
+          }
+        },
+        "type": "object",
+        "title": "TipoMovimientoUpdate"
       },
       "TokenResponse": {
         "properties": {
@@ -12850,6 +13384,76 @@
         },
         "type": "object",
         "title": "UbicacionUpdate"
+      },
+      "UmbralesColor": {
+        "properties": {
+          "alerta": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Alerta",
+            "default": 40
+          },
+          "critica": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Critica",
+            "default": 80
+          }
+        },
+        "type": "object",
+        "title": "UmbralesColor"
+      },
+      "UnidadConfig-Input": {
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Dimension"
+          },
+          "factor": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Factor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dimension",
+          "factor"
+        ],
+        "title": "UnidadConfig"
+      },
+      "UnidadConfig-Output": {
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Dimension"
+          },
+          "factor": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Factor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dimension",
+          "factor"
+        ],
+        "title": "UnidadConfig"
       },
       "UsuarioCreate": {
         "properties": {

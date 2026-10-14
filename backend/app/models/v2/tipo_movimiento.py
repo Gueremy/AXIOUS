@@ -8,6 +8,7 @@ from sqlalchemy import Column, String, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.models.v2.types import JSONDocument
 
 
 class TipoMovimiento(Base):
@@ -21,6 +22,7 @@ class TipoMovimiento(Base):
     requiere_origen = Column(Boolean, default=False, nullable=False)
     requiere_destino = Column(Boolean, default=False, nullable=False)
     requiere_aprobacion = Column(Boolean, default=False, nullable=False)
+    flujo_aprobacion = Column(JSONDocument, default=dict, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
 
     __table_args__ = (

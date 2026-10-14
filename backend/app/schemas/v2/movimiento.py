@@ -1,7 +1,25 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+class EtapaAprobacion(BaseModel):
+    codigo: str = Field(..., min_length=1, max_length=20, pattern=r"^[a-zA-Z0-9_]+$")
+    roles: list[str] = Field(default_factory=list)
+
+
+class FlujoAprobacion(BaseModel):
+    etapas: list[EtapaAprobacion] = Field(default_factory=list, max_length=5)
+    estado_aprobado: str = Field("aprobada", min_length=1, max_length=20)
+    estado_rechazado: str = Field("rechazada", min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def validar_estados(self):
+        codigos = [etapa.codigo for etapa in self.etapas]
+        if len(set(codigos + [self.estado_aprobado, self.estado_rechazado])) != len(codigos) + 2:
+            raise ValueError("Los estados del flujo deben ser distintos")
+        return self
 
 
 class TipoMovimientoCreate(BaseModel):
@@ -11,6 +29,20 @@ class TipoMovimientoCreate(BaseModel):
     requiere_origen: bool = False
     requiere_destino: bool = False
     requiere_aprobacion: bool = False
+    flujo_aprobacion: Optional[FlujoAprobacion] = None
+
+    @model_validator(mode="after")
+    def validar_flujo(self):
+        if self.flujo_aprobacion and self.flujo_aprobacion.etapas and not self.requiere_aprobacion:
+            raise ValueError("Las etapas requieren aprobación activada")
+        return self
+
+
+class TipoMovimientoUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, max_length=100)
+    requiere_aprobacion: Optional[bool] = None
+    flujo_aprobacion: Optional[FlujoAprobacion] = None
+    activo: Optional[bool] = None
 
 
 class TipoMovimientoRead(BaseModel):
@@ -22,6 +54,7 @@ class TipoMovimientoRead(BaseModel):
     requiere_origen: bool
     requiere_destino: bool
     requiere_aprobacion: bool
+    flujo_aprobacion: Dict[str, Any] = Field(default_factory=dict)
     activo: bool
 
     model_config = {"from_attributes": True}

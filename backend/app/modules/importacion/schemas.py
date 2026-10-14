@@ -71,3 +71,10 @@ class ImportacionJobRead(BaseModel):
 class ConciliacionResultado(BaseModel):
     job: ImportacionJobRead
     inconsistencias: List[InconsistenciaRead]
+
+
+class ImportacionAPIRequest(BaseModel):
+    fuente: str = Field(..., min_length=1, max_length=100)
+    filas: List[Dict[str, Any]] = Field(..., min_length=1, max_length=10000)
+    id_mapping_profile: Optional[str] = None
+    mapeo: Optional[Dict[str, str]] = None
