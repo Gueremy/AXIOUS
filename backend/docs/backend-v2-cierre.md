@@ -38,7 +38,7 @@ Para integrar el frontend, `GET /api/v2/sesion` devuelve la organización autent
 
 Cuando una organización mezcla unidades, los KPIs incluyen desglose por unidad y `totales_comparables=false`; los totales escalares antiguos se conservan para los clientes existentes. El API de exportación pagina para no truncar datos silenciosamente; consulte `X-Export-Total` y recorra las páginas. Los conectores externos concretos de cámaras, GPS y ERP siguen siendo integraciones posteriores; la interfaz, el endpoint de entrada y los webhooks están disponibles para implementarlos.
 
-El documento general menciona nueve alertas heredadas, pero `app/models/alerta.py` enumera ocho. La configuración v2 incluye las ocho identificables; hace falta definir la novena si se espera una alerta adicional.
+El documento general menciona nueve alertas, pero `app/models/alerta.py` enumera ocho heredadas. La novena regla v2 es `sincronizacion_offline_rechazada`: un rechazo de negocio en `/api/v2/movimientos/sync` crea una alerta de severidad `aviso`, configurable por organización y asociada al sitio cuando la ubicación es válida. El ID derivado de organización y UUID local evita duplicados por reintentos, incluso después de resolver la alerta. El operador conserva el motivo en la respuesta de sincronización; la alerta queda disponible en `/api/v2/alertas/activas` y se notifica por WebSocket al sitio correspondiente. Sólo un usuario con permiso `movimiento:approve` puede revisar o resolver esta alerta.
 
 ## Cómo repetir la verificación
 

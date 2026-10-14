@@ -17,6 +17,7 @@ from app.models.v2 import (
     Organizacion, Sitio, Zona, Ubicacion,
     Item, Lote, TipoMovimiento, SaldoStock, UsuarioSitio
 )
+from app.models.v2.alerta import AlertaV2, ReglaAlertaV2
 from sqlalchemy import select
 
 
@@ -256,6 +257,66 @@ async def test_offline_sync_partial_failure_isolated(client: AsyncClient, setup_
     assert res_invalid["estado"] == "rechazado"
     assert "capacidad" in res_invalid["motivo"].lower()
 
+    alerts = await client.get("/api/v2/alertas/activas", headers=headers)
+    assert alerts.status_code == 200
+    offline_alerts = [a for a in alerts.json() if a["tipo"] == "sincronizacion_offline_rechazada"]
+    assert len(offline_alerts) == 1
+    assert offline_alerts[0]["id_ubicacion"] == ctx["ubi_a2"].id
+    assert offline_alerts[0]["metadatos"]["uuid_local"] == uuid_invalid
+    assert offline_alerts[0]["metadatos"]["id_usuario_solicitante"] == ctx["user_a"].id
+    denied = await client.patch(
+        f"/api/v2/alertas/{offline_alerts[0]['id']}/resolver", headers=headers,
+    )
+    assert denied.status_code == 403
+
+    # Un reenvío puede repetir el rechazo, pero nunca duplicar la alerta.
+    retry = await client.post("/api/v2/movimientos/sync", json=batch_payload, headers=headers)
+    assert retry.status_code == 200
+    assert retry.json()["rechazados"] == 1
+    count = (await db.execute(select(AlertaV2).where(
+        AlertaV2.id_organizacion == ctx["org_a"].id,
+        AlertaV2.tipo == "sincronizacion_offline_rechazada",
+    ))).scalars().all()
+    assert len(count) == 1
+    supervisor = Usuario(
+        id=str(uuid.uuid4()), nombre="Supervisor Offline",
+        email=f"supervisor_{uuid.uuid4().hex[:8]}@sync.cl", password_hash="fake",
+        codigo_empleado=f"SUP-{uuid.uuid4().hex[:8]}", rol="jefe_bodega",
+        id_organizacion=ctx["org_a"].id, activo=True,
+    )
+    db.add(supervisor)
+    await db.flush()
+    db.add(UsuarioSitio(id_usuario=supervisor.id, id_sitio=offline_alerts[0]["id_sitio"]))
+    await db.commit()
+    supervisor_token = create_access_token({"sub": supervisor.id, "org_id": ctx["org_a"].id})
+    resolved = await client.patch(f"/api/v2/alertas/{offline_alerts[0]['id']}/resolver", headers={
+        "Authorization": f"Bearer {supervisor_token}",
+    })
+    assert resolved.status_code == 200
+    assert resolved.json()["estado"] == "resuelta"
+    resolved_retry = await client.post("/api/v2/movimientos/sync", json=batch_payload, headers=headers)
+    assert resolved_retry.status_code == 200
+    assert len((await db.execute(select(AlertaV2).where(
+        AlertaV2.id_organizacion == ctx["org_a"].id,
+        AlertaV2.tipo == "sincronizacion_offline_rechazada",
+    ))).scalars().all()) == 1
+
+    rule = (await db.execute(select(ReglaAlertaV2).where(
+        ReglaAlertaV2.id_organizacion == ctx["org_a"].id,
+        ReglaAlertaV2.codigo == "sincronizacion_offline_rechazada",
+    ))).scalar_one()
+    rule.habilitada = False
+    await db.commit()
+    disabled = await client.post("/api/v2/movimientos/sync", headers=headers, json={"movimientos": [
+        {**batch_payload["movimientos"][1], "uuid_local": str(uuid.uuid4())},
+    ]})
+    assert disabled.status_code == 200
+    assert disabled.json()["rechazados"] == 1
+    assert len((await db.execute(select(AlertaV2).where(
+        AlertaV2.id_organizacion == ctx["org_a"].id,
+        AlertaV2.tipo == "sincronizacion_offline_rechazada",
+    ))).scalars().all()) == 1
+
     # El saldo registrado en ubi_a2 debe ser solo los 25 kg
     stmt_saldo = select(SaldoStock).where(
         SaldoStock.id_ubicacion == ctx["ubi_a2"].id,
@@ -267,7 +328,7 @@ async def test_offline_sync_partial_failure_isolated(client: AsyncClient, setup_
 
 
 @pytest.mark.asyncio
-async def test_offline_sync_cross_tenant_rejected(client: AsyncClient, setup_sync_fixture):
+async def test_offline_sync_cross_tenant_rejected(client: AsyncClient, setup_sync_fixture, db):
     """Verifica que un usuario de Org A no pueda sincronizar un movimiento en una ubicación de Org B."""
     ctx = setup_sync_fixture
     headers = {"Authorization": f"Bearer {ctx['token_a']}"}
@@ -295,3 +356,9 @@ async def test_offline_sync_cross_tenant_rejected(client: AsyncClient, setup_syn
     res = data["resultados"][0]
     assert res["estado"] == "rechazado"
     assert "no encontrada" in res["motivo"].lower() or "pertenece" in res["motivo"].lower()
+    alert = (await db.execute(select(AlertaV2).where(
+        AlertaV2.id_organizacion == ctx["org_a"].id,
+        AlertaV2.tipo == "sincronizacion_offline_rechazada",
+    ))).scalar_one()
+    assert alert.id_ubicacion is None
+    assert alert.id_sitio is None

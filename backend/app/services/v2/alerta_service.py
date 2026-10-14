@@ -10,6 +10,7 @@ from typing import List, Optional
 import uuid
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies_v2 import TenantContext
@@ -83,10 +84,79 @@ PLANTILLAS_DEFAULT = [
         "severidad": "critica",
         "configuracion": {},
     },
+    {
+        "codigo": "sincronizacion_offline_rechazada",
+        "nombre": "Movimiento offline rechazado",
+        "tipo": "sincronizacion",
+        "severidad": "aviso",
+        "configuracion": {},
+    },
 ]
 
 
 class AlertaServiceV2:
+
+    @staticmethod
+    async def registrar_rechazo_sync(
+        db: AsyncSession,
+        tenant: TenantContext,
+        uuid_local: str,
+        motivo: str,
+        id_ubicacion_origen: Optional[str],
+        id_ubicacion_destino: Optional[str],
+        codigo_http: int,
+    ) -> None:
+        """Registra una sola alerta por UUID y organización, aunque el cliente reintente."""
+        await AlertaServiceV2.inicializar_plantillas(db, tenant.id_organizacion)
+        regla = (await db.execute(select(ReglaAlertaV2).where(
+            ReglaAlertaV2.id_organizacion == tenant.id_organizacion,
+            ReglaAlertaV2.codigo == "sincronizacion_offline_rechazada",
+            ReglaAlertaV2.habilitada.is_(True),
+        ))).scalar_one_or_none()
+        if regla is None:
+            await db.commit()
+            return
+
+        # El ID determinista protege contra reenvíos concurrentes y alertas ya resueltas.
+        alerta_id = str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                  f"salmontrack:sync-rechazado:{tenant.id_organizacion}:{uuid_local}"))
+        if (await db.execute(select(AlertaV2.id).where(AlertaV2.id == alerta_id))).scalar_one_or_none():
+            await db.commit()
+            return
+
+        id_ubicacion = id_sitio = None
+        for candidate in (id_ubicacion_destino, id_ubicacion_origen):
+            if not candidate:
+                continue
+            location = (await db.execute(select(Ubicacion.id, Zona.id_sitio).join(
+                Zona, Zona.id == Ubicacion.id_zona,
+            ).where(Ubicacion.id == candidate,
+                    Ubicacion.id_organizacion == tenant.id_organizacion,
+                    Zona.id_organizacion == tenant.id_organizacion))).first()
+            if location:
+                id_ubicacion, id_sitio = location
+                break
+
+        alerta = AlertaV2(
+            id=alerta_id, id_organizacion=tenant.id_organizacion,
+            id_regla=regla.id, id_sitio=id_sitio, id_ubicacion=id_ubicacion,
+            tipo=regla.codigo, severidad=regla.severidad,
+            titulo="Movimiento offline rechazado",
+            descripcion=f"Movimiento offline {uuid_local} rechazado: {motivo}"[:500],
+            estado="activa",
+            metadatos={"uuid_local": uuid_local, "id_usuario_solicitante": tenant.usuario.id,
+                       "codigo_http": codigo_http},
+        )
+        try:
+            async with db.begin_nested():
+                db.add(alerta)
+                await db.flush()
+        except IntegrityError:
+            # Otro reintento creó la alerta al mismo tiempo.
+            await db.commit()
+            return
+        await db.commit()
+        await AlertaServiceV2.notificar_alertas(db, tenant.id_organizacion, [alerta])
 
     @staticmethod
     async def notificar_alertas(db: AsyncSession, id_organizacion: str, alertas: List[AlertaV2]) -> None:
@@ -130,10 +200,14 @@ class AlertaServiceV2:
                     configuracion=plantilla["configuracion"],
                     habilitada=True,
                 )
-                db.add(nueva)
+                try:
+                    async with db.begin_nested():
+                        db.add(nueva)
+                        await db.flush()
+                except IntegrityError:
+                    # Otra solicitud inicializó la misma regla simultáneamente.
+                    continue
                 reglas_creadas.append(nueva)
-        if reglas_creadas:
-            await db.flush()
         return reglas_creadas
 
     @staticmethod
@@ -354,6 +428,8 @@ class AlertaServiceV2:
         alerta = (await db.execute(scope_alert_query(stmt, tenant, AlertaV2))).scalar_one_or_none()
         if not alerta:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alerta no encontrada")
+        if alerta.tipo == "sincronizacion_offline_rechazada" and not tenant.tiene_permiso("movimiento:approve"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sólo supervisión puede revisar esta alerta")
 
         alerta.estado = "revisada"
         alerta.id_usuario_revision = tenant.usuario.id
@@ -389,6 +465,8 @@ class AlertaServiceV2:
         alerta = (await db.execute(scope_alert_query(stmt, tenant, AlertaV2))).scalar_one_or_none()
         if not alerta:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alerta no encontrada")
+        if alerta.tipo == "sincronizacion_offline_rechazada" and not tenant.tiene_permiso("movimiento:approve"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sólo supervisión puede resolver esta alerta")
 
         alerta.estado = "resuelta"
         alerta.fecha_resolucion = func.now()

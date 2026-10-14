@@ -19,6 +19,7 @@ from app.schemas.v2.sync import (
     SyncMovimientoResultado,
 )
 from app.services.v2.movimiento_service import MovimientoService
+from app.services.v2.alerta_service import AlertaServiceV2
 
 
 class OfflineSyncService:
@@ -100,6 +101,11 @@ class OfflineSyncService:
                     pendientes += 1
 
             except HTTPException as exc:
+                if 400 <= exc.status_code < 500:
+                    await AlertaServiceV2.registrar_rechazo_sync(
+                        db, tenant, item.uuid_local, str(exc.detail),
+                        item.id_ubicacion_origen, item.id_ubicacion_destino, exc.status_code,
+                    )
                 resultados.append(
                     SyncMovimientoResultado(
                         uuid_local=item.uuid_local,
