@@ -1,11 +1,16 @@
 """Exportación paginada de los conjuntos de datos visibles en la API v2."""
 import json
+import os
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import FileResponse
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from starlette.background import BackgroundTask
 
 from app.core.dependencies_v2 import TenantContext, get_current_tenant, require_permission
 from app.core.modules.registry import ModuleRegistry
@@ -150,3 +155,57 @@ async def exportar_recurso(
         mime, extension = "application/pdf", "pdf"
     headers["Content-Disposition"] = f"attachment; filename={nombre}.{extension}"
     return Response(content=contenido, media_type=mime, headers=headers)
+
+
+@router.get("/{recurso}/{formato}/completo")
+async def exportar_recurso_completo(
+    recurso: str,
+    formato: Literal["csv", "excel", "pdf"],
+    size: int = Query(10000, ge=1, le=10000),
+    tenant: TenantContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Crea un ZIP paginado desde una sola instantánea de PostgreSQL.
+
+    El archivo se materializa en disco antes de responder. Así se cierra la
+    transacción y se libera su conexión incluso si el cliente descarga lento.
+    """
+    extension = {"csv": "csv", "excel": "xlsx", "pdf": "pdf"}[formato]
+    fd, path = tempfile.mkstemp(prefix="salmo-export-", suffix=".zip")
+    os.close(fd)
+    try:
+        session_factory = async_sessionmaker(bind=db.bind, expire_on_commit=False)
+        async with session_factory() as export_db:
+            if export_db.bind.dialect.name == "postgresql":
+                await export_db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+                await export_db.execute(text("SET TRANSACTION READ ONLY"))
+            with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
+                page = 1
+                total = None
+                while True:
+                    response = await exportar_recurso(
+                        recurso, formato, page=page, size=size, tenant=tenant, db=export_db,
+                    )
+                    page_total = int(response.headers["X-Export-Total"])
+                    if total is None:
+                        total = page_total
+                    elif page_total != total:
+                        raise HTTPException(status_code=409, detail="Los datos cambiaron durante la exportación")
+                    archive.writestr(f"pagina-{page:03d}.{extension}", response.body)
+                    if page * size >= total:
+                        break
+                    page += 1
+                archive.writestr("manifest.json", json.dumps({
+                    "recurso": recurso, "formato": formato,
+                    "total": total, "paginas": page,
+                    "fecha_generacion": datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False))
+        return FileResponse(
+            path, media_type="application/zip",
+            filename=f"{recurso}_{tenant.id_organizacion[:8]}_completo.zip",
+            background=BackgroundTask(os.unlink, path),
+            headers={"X-Export-Total": str(total), "X-Export-Pages": str(page)},
+        )
+    except BaseException:
+        os.unlink(path)
+        raise

@@ -7496,6 +7496,78 @@
         }
       }
     },
+    "/api/v2/exportaciones/{recurso}/{formato}/completo": {
+      "get": {
+        "tags": [
+          "V2 - Exportaciones"
+        ],
+        "summary": "Exportar Recurso Completo",
+        "description": "Crea un ZIP paginado desde una sola instantánea de PostgreSQL.\n\nEl archivo se materializa en disco antes de responder. Así se cierra la\ntransacción y se libera su conexión incluso si el cliente descarga lento.",
+        "operationId": "exportar_recurso_completo_api_v2_exportaciones__recurso___formato__completo_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "recurso",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Recurso"
+            }
+          },
+          {
+            "name": "formato",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "csv",
+                "excel",
+                "pdf"
+              ],
+              "type": "string",
+              "title": "Formato"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "default": 10000,
+              "title": "Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v2/sesion": {
       "get": {
         "tags": [

@@ -147,12 +147,13 @@ async def ws_health():
 @app.get("/health", tags=["Sistema"])
 async def health():
     host = settings.BASE_URL.replace("https://", "").replace("http://", "")
+    websocket_scheme = "wss" if settings.BASE_URL.startswith("https://") else "ws"
     return {
         "status": "ok",
         "environment": settings.ENVIRONMENT,
         "version": "3.0.0",
         "websocket_connections": manager.total_connections,
         "scheduler_running": scheduler.running,
-        # BUG-4 FIX: mostrar URL correcta wss:// para que el frontend sepa cómo conectarse
-        "websocket_url": f"wss://{host}/ws/alertas/{{id_sede}}?token={{jwt}}" if settings.ENVIRONMENT == "production" else "ws://localhost:8000/ws/alertas/{id_sede}?token={jwt}",
+        # El protocolo WebSocket sigue el esquema de BASE_URL, también en instalaciones locales.
+        "websocket_url": f"{websocket_scheme}://{host}/ws/alertas/{{id_sede}}?token={{jwt}}",
     }

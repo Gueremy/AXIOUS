@@ -9,9 +9,11 @@ Pruebas de KPIs de supervisor y servicios de exportación (Fase 1F):
 from decimal import Decimal
 import io
 import uuid
+import zipfile
 import pytest
 from httpx import AsyncClient
 import openpyxl
+from sqlalchemy import select
 
 from app.core.security import create_access_token
 from app.models.usuario import Usuario
@@ -248,6 +250,40 @@ async def test_resumen_gerencia_usa_movimientos_reales_y_aisla_tenant(client: As
     assert other.status_code == 200
     assert sum(day["total"] for day in other.json()["movimientos_diarios"]) == 0
     assert other.json()["top_items"] == []
+
+
+@pytest.mark.asyncio
+async def test_exportacion_completa_zip_paginado_y_aislado(client: AsyncClient, db, setup_dashboard_fixture):
+    ctx = setup_dashboard_fixture
+    original = (await db.execute(select(MovimientoV2).where(
+        MovimientoV2.id_organizacion == ctx["org_a"].id,
+    ))).scalar_one()
+    db.add(MovimientoV2(
+        id=str(uuid.uuid4()), id_organizacion=original.id_organizacion,
+        id_tipo_movimiento=original.id_tipo_movimiento, id_item=original.id_item,
+        id_lote=original.id_lote, id_ubicacion_destino=original.id_ubicacion_destino,
+        id_usuario=original.id_usuario, cantidad=Decimal("1"),
+        unidad_medida=original.unidad_medida, efecto_stock="entrada", atributos={},
+    ))
+    await db.commit()
+
+    response = await client.get(
+        "/api/v2/exportaciones/movimientos/excel/completo?size=1",
+        headers={"Authorization": f"Bearer {ctx['token_a']}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["X-Export-Total"] == "2"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert set(archive.namelist()) == {"pagina-001.xlsx", "pagina-002.xlsx", "manifest.json"}
+        assert openpyxl.load_workbook(io.BytesIO(archive.read("pagina-001.xlsx"))).active.max_row == 2
+        assert openpyxl.load_workbook(io.BytesIO(archive.read("pagina-002.xlsx"))).active.max_row == 2
+
+    other = await client.get(
+        "/api/v2/exportaciones/movimientos/excel/completo?size=1",
+        headers={"Authorization": f"Bearer {ctx['token_b']}"},
+    )
+    assert other.status_code == 200
+    assert other.headers["X-Export-Total"] == "0"
 
 
 @pytest.mark.asyncio
