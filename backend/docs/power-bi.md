@@ -38,3 +38,17 @@ informe publicado: verificar por separado conexión, carga y actualización.
 La prueba `tests_postgres/test_pilot_bootstrap.py` migra una base temporal con
 un propietario no superusuario y comprueba repetición, ausencia de stock,
 privilegios del lector y rechazo a tablas base/escritura.
+
+## Conexión comprobada
+
+El 8 de noviembre de 2026, después de la entrada privada de los datos de
+conexión por el usuario, Power BI Service mostró guardada **SalmoTrack Piloto
+v3**, tipo PostgreSQL. Al ejecutar **Comprobar el estado**, pasó de **Cargando**
+a **En línea**. Esto verifica conectividad desde Power BI al piloto de Render.
+
+[Administrar conexiones en Power BI](https://app.powerbi.com/groups/me/gateways?experience=power-bi).
+[Evidencia de la conexión](https://github.com/Gueremy/salmonwise-inventory/blob/v3/docs/evidence/power-bi-connection-online.jpg).
+
+No se creó un modelo semántico o informe, ni se comprobó actualización de
+datos. La conexión usa el lector de organización; las credenciales quedan
+fuera del repositorio y del frontend.
