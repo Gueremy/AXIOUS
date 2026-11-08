@@ -1,3 +1,4 @@
+from app.schemas.v2.proveedor import LoteNuevo
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -5,6 +6,8 @@ from pydantic import BaseModel, Field
 
 
 class SyncMovimientoItem(BaseModel):
+    id_movimiento_original: Optional[str] = None
+    lote_nuevo: Optional[LoteNuevo] = None
     uuid_local: str = Field(..., description="UUID generado en el cliente local (Dexie.js / PWA)")
     id_tipo_movimiento: str
     id_item: str
@@ -34,5 +37,6 @@ class SyncBatchResponse(BaseModel):
     total: int
     sincronizados: int
     pendientes: int = 0
+    reintentables: int = 0
     rechazados: int
     resultados: List[SyncMovimientoResultado]

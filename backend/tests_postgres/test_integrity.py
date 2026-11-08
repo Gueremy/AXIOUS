@@ -63,7 +63,7 @@ async def test_v2_documentos_jsonb_y_migracion_final():
     _require_test_postgres()
     async with AsyncSessionLocal() as db:
         revision = (await db.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
-        assert revision == "c5d6e7f80910"
+        assert revision == "g1h2i3j4k5l6"
         columns = (await db.execute(text("""
             SELECT table_name, column_name, data_type FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name LIKE 'v2_%'

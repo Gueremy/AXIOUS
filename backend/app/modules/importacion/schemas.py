@@ -1,3 +1,5 @@
+from pydantic import field_validator
+from app.modules.importacion.services.mapping import validar_mapeo
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -5,9 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class MappingProfileCreate(BaseModel):
+    @field_validator("mapeo")
+    @classmethod
+    def validate_mapping(cls, value):
+        return validar_mapeo(value)
+
     nombre: str = Field(..., max_length=100)
     descripcion: Optional[str] = Field(None, max_length=255)
-    mapeo: Dict[str, str] = Field(
+    mapeo: Dict[str, Any] = Field(
         ...,
         description="Diccionario de mapeo de nombres de columna externa a campos canónicos: "
                     "{'codigo_ubicacion': 'POS', 'codigo_item': 'SKU', 'cantidad': 'QTY', 'numero_lote': 'LOTE'}"
@@ -15,9 +22,14 @@ class MappingProfileCreate(BaseModel):
 
 
 class MappingProfileUpdate(BaseModel):
+    @field_validator("mapeo")
+    @classmethod
+    def validate_mapping(cls, value):
+        return validar_mapeo(value) if value is not None else value
+
     nombre: Optional[str] = Field(None, max_length=100)
     descripcion: Optional[str] = Field(None, max_length=255)
-    mapeo: Optional[Dict[str, str]] = None
+    mapeo: Optional[Dict[str, Any]] = None
     activo: Optional[bool] = None
 
 
@@ -26,7 +38,7 @@ class MappingProfileRead(BaseModel):
     id_organizacion: str
     nombre: str
     descripcion: Optional[str] = None
-    mapeo: Dict[str, str]
+    mapeo: Dict[str, Any]
     activo: bool
     fecha_creacion: datetime
 
@@ -75,7 +87,7 @@ class ConciliacionResultado(BaseModel):
 
 class PrevisualizacionArchivo(BaseModel):
     columnas: List[str]
-    filas: List[Dict[str, str]]
+    filas: List[Dict[str, Any]]
     total_filas: int
 
 
@@ -83,4 +95,4 @@ class ImportacionAPIRequest(BaseModel):
     fuente: str = Field(..., min_length=1, max_length=100)
     filas: List[Dict[str, Any]] = Field(..., min_length=1, max_length=10000)
     id_mapping_profile: Optional[str] = None
-    mapeo: Optional[Dict[str, str]] = None
+    mapeo: Optional[Dict[str, Any]] = None

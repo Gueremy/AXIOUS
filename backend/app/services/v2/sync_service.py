@@ -6,6 +6,7 @@ Procesa bloques de movimientos provenientes de PWA / almacenamiento local:
 - Si un movimiento falla (por capacidad, stock o reglas), no aborta el lote completo.
 - Retorna un resultado individual estructurado por cada movimiento procesado.
 """
+import logging
 from typing import List
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -34,6 +35,7 @@ class OfflineSyncService:
         sincronizados = 0
         pendientes = 0
         rechazados = 0
+        reintentables = 0
 
         for item in batch.movimientos:
             # 1. Verificar idempotencia: ¿ya existe este uuid_local confirmado en la organización?
@@ -42,18 +44,6 @@ class OfflineSyncService:
                 MovimientoV2.uuid_local == item.uuid_local,
             )
             dup = (await db.execute(stmt_dup)).scalar_one_or_none()
-            if dup:
-                resultados.append(
-                    SyncMovimientoResultado(
-                        uuid_local=item.uuid_local,
-                        estado="duplicado",
-                        id_movimiento=dup.id,
-                        motivo="Movimiento ya sincronizado previamente",
-                    )
-                )
-                sincronizados += 1
-                continue
-
             # 2. Procesar con savepoint aislado por elemento
             try:
                 async with db.begin_nested():
@@ -70,6 +60,9 @@ class OfflineSyncService:
                         observaciones=item.observaciones,
                         uuid_local=item.uuid_local,
                         atributos=item.atributos,
+                        lote_nuevo=item.lote_nuevo,
+                        fecha_hora_local=item.fecha_hora_local,
+                        id_movimiento_original=item.id_movimiento_original,
                         auto_commit=False,
                     )
 
@@ -84,12 +77,15 @@ class OfflineSyncService:
 
                 await db.commit()
                 if mov_creado is not None:
-                    await MovimientoService.publicar_movimiento_confirmado(db, tenant, mov_creado)
+                    try:
+                        await MovimientoService.publicar_movimiento_confirmado(db, tenant, mov_creado)
+                    except Exception:
+                        logging.getLogger(__name__).exception("Fallo de notificación después de confirmar movimiento")
 
                 resultados.append(
                     SyncMovimientoResultado(
                         uuid_local=item.uuid_local,
-                        estado="sincronizado" if id_mov else "pendiente",
+                        estado=("duplicado" if dup else "sincronizado") if id_mov else "pendiente",
                         id_movimiento=id_mov,
                         id_solicitud=solicitud.id,
                         motivo=None,
@@ -101,7 +97,7 @@ class OfflineSyncService:
                     pendientes += 1
 
             except HTTPException as exc:
-                if 400 <= exc.status_code < 500:
+                if 400 <= exc.status_code < 500 and exc.status_code not in (408, 429):
                     await AlertaServiceV2.registrar_rechazo_sync(
                         db, tenant, item.uuid_local, str(exc.detail),
                         item.id_ubicacion_origen, item.id_ubicacion_destino, exc.status_code,
@@ -109,27 +105,31 @@ class OfflineSyncService:
                 resultados.append(
                     SyncMovimientoResultado(
                         uuid_local=item.uuid_local,
-                        estado="rechazado",
+                        estado="reintentar" if exc.status_code >= 500 or exc.status_code in (408, 429) else "rechazado",
                         id_movimiento=None,
-                        motivo=str(exc.detail),
+                        motivo="Servicio temporalmente no disponible; vuelve a sincronizar" if exc.status_code >= 500 else str(exc.detail),
                     )
                 )
-                rechazados += 1
+                if exc.status_code >= 500 or exc.status_code in (408, 429):
+                    reintentables += 1
+                else:
+                    rechazados += 1
             except Exception as exc:
                 resultados.append(
                     SyncMovimientoResultado(
                         uuid_local=item.uuid_local,
-                        estado="rechazado",
+                        estado="reintentar",
                         id_movimiento=None,
-                        motivo=f"Error inesperado al sincronizar: {str(exc)}",
+                        motivo="No se pudo confirmar la operación. Vuelve a sincronizar con el mismo identificador.",
                     )
                 )
-                rechazados += 1
+                reintentables += 1
 
         return SyncBatchResponse(
             total=len(batch.movimientos),
             sincronizados=sincronizados,
             pendientes=pendientes,
             rechazados=rechazados,
+            reintentables=reintentables,
             resultados=resultados,
         )

@@ -67,12 +67,15 @@ app = FastAPI(
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 app.state.limiter = limiter
+from app.core.error_responses import register_error_responses
+register_error_responses(app)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.exception_handler(AtributosValidationError)
 async def atributos_invalidos_handler(request, exc: AtributosValidationError):
-    return JSONResponse(status_code=422, content={"detail": exc.message, "errores": exc.errors})
+    return JSONResponse(status_code=422, content={"detail": exc.message, "errores": exc.errors,
+        "code": "ATTRIBUTE_VALIDATION_ERROR", "message": exc.message, "request_id": request.state.request_id})
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,6 +83,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    expose_headers=["Content-Disposition", "X-Export-Total", "X-Export-Page", "X-Export-Pages", "X-Request-ID"],
 )
 
 # ─── Routers ──────────────────────────────────────────────────────────────────

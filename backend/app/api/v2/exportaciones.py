@@ -1,3 +1,6 @@
+from typing import Optional
+from app.services.v2.export_presentation import readable_export, LABELS
+from app.services.v2.movement_presentation import filter_movement_search
 """Exportación paginada de los conjuntos de datos visibles en la API v2."""
 import json
 import os
@@ -104,24 +107,26 @@ async def exportar_recurso(
     formato: Literal["csv", "excel", "pdf"],
     page: int = Query(1, ge=1),
     size: int = Query(1000, ge=1, le=10000),
+    q: Optional[str] = Query(None, max_length=150),
+    fecha_desde: Optional[datetime] = Query(None),
+    fecha_hasta: Optional[datetime] = Query(None),
+    id_sitio: Optional[str] = Query(None),
+    efecto_stock: Optional[str] = Query(None),
     tenant: TenantContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
-    spec = RECURSOS.get(recurso)
+    spec = RECURSOS.get("movimientos" if recurso == "bi-movimientos" else recurso)
     if spec is None and recurso not in DYNAMIC_RECURSOS:
         raise HTTPException(status_code=404, detail="Recurso exportable no encontrado")
-    if recurso in DYNAMIC_RECURSOS:
+    if recurso in DYNAMIC_RECURSOS and recurso != "bi-movimientos":
         funcion = DYNAMIC_RECURSOS[recurso]
-        if recurso == "bi-movimientos":
-            datos = await funcion(fecha_desde=None, fecha_hasta=None, limit=20000,
-                                  tenant=tenant, db=db)
-        else:
-            datos = await funcion(tenant=tenant, db=db)
+        datos = await funcion(tenant=tenant, db=db)
         objetos = datos if isinstance(datos, list) else [datos]
         total = len(objetos)
-        cabeceras = list(objetos[0].model_dump().keys()) if objetos else ["sin_datos"]
+        campos = [field for field in objetos[0].model_dump() if not field.startswith("id_")] if objetos else ["sin_datos"]
+        cabeceras = [LABELS.get(field, field.replace("_", " ").capitalize()) for field in campos]
         objetos = objetos[(page - 1) * size:page * size]
-        filas = [[_celda(obj.model_dump().get(campo)) for campo in cabeceras] for obj in objetos]
+        filas = [[_celda(obj.model_dump().get(campo)) for campo in campos] for obj in objetos]
     else:
         modelo, campos = spec
         if modelo is None:
@@ -134,10 +139,19 @@ async def exportar_recurso(
         else:
             stmt = _alcance(select(modelo).where(modelo.id_organizacion == tenant.id_organizacion),
                             tenant, modelo)
+            if modelo in (MovimientoV2, SolicitudMovimiento):
+                stmt = filter_movement_search(stmt, modelo, q if isinstance(q, str) else None)
+                date_field = MovimientoV2.fecha_hora if modelo is MovimientoV2 else SolicitudMovimiento.fecha_creacion
+                if isinstance(fecha_desde, datetime): stmt = stmt.where(date_field >= fecha_desde)
+                if isinstance(fecha_hasta, datetime): stmt = stmt.where(date_field <= fecha_hasta)
+                if isinstance(id_sitio, str):
+                    location_ids = select(Ubicacion.id).join(Zona, Ubicacion.id_zona == Zona.id).where(Zona.id_sitio == id_sitio, Zona.id_organizacion == tenant.id_organizacion)
+                    from sqlalchemy import or_
+                    stmt = stmt.where(or_(modelo.id_ubicacion_origen.in_(location_ids), modelo.id_ubicacion_destino.in_(location_ids)))
+                if isinstance(efecto_stock, str) and modelo is MovimientoV2: stmt = stmt.where(MovimientoV2.efecto_stock == efecto_stock)
             total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
             objetos = (await db.execute(stmt.order_by(modelo.id).offset((page - 1) * size).limit(size))).scalars().all()
-        filas = [[_celda(getattr(obj, campo)) for campo in campos] for obj in objetos]
-        cabeceras = list(campos)
+        cabeceras, filas = await readable_export(db, tenant, recurso, objetos, campos)
     nombre = f"{recurso}_{tenant.id_organizacion[:8]}_p{page}"
     headers = {"X-Export-Total": str(total), "X-Export-Page": str(page)}
     if formato == "csv":
@@ -149,7 +163,7 @@ async def exportar_recurso(
     else:
         contenido = ExportServiceV2.exportar_pdf(
             titulo=f"Reporte de {recurso}",
-            subtitulo=f"Organización {tenant.id_organizacion} · {datetime.now(timezone.utc).isoformat()}",
+            subtitulo=f"Organización {tenant.organizacion.nombre} · {datetime.now(timezone.utc).isoformat()}",
             cabeceras=cabeceras, filas=filas,
         )
         mime, extension = "application/pdf", "pdf"
@@ -162,6 +176,11 @@ async def exportar_recurso_completo(
     recurso: str,
     formato: Literal["csv", "excel", "pdf"],
     size: int = Query(10000, ge=1, le=10000),
+    q: Optional[str] = Query(None, max_length=150),
+    fecha_desde: Optional[datetime] = Query(None),
+    fecha_hasta: Optional[datetime] = Query(None),
+    id_sitio: Optional[str] = Query(None),
+    efecto_stock: Optional[str] = Query(None),
     tenant: TenantContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -185,6 +204,7 @@ async def exportar_recurso_completo(
                 while True:
                     response = await exportar_recurso(
                         recurso, formato, page=page, size=size, tenant=tenant, db=export_db,
+                        q=q, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, id_sitio=id_sitio, efecto_stock=efecto_stock,
                     )
                     page_total = int(response.headers["X-Export-Total"])
                     if total is None:

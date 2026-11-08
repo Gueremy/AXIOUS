@@ -1,3 +1,4 @@
+from app.services.v2.movement_presentation import present_movements, filter_movement_search
 import math
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -147,14 +148,19 @@ async def crear_solicitud_movimiento(
         observaciones=data.observaciones,
         uuid_local=data.uuid_local,
         atributos=data.atributos,
+        lote_nuevo=data.lote_nuevo,
+        id_movimiento_original=data.id_movimiento_original,
+        fecha_hora_local=data.fecha_hora_local,
     )
     return solicitud
 
 
 @router.get("/solicitudes", response_model=PaginatedResponse[SolicitudMovimientoRead])
 async def listar_solicitudes(
+    ids: Optional[List[str]] = Query(None, max_length=100),
     estado: Optional[str] = Query(None, description="Filtrar por estado (pendiente, aprobada, rechazada)"),
     pendientes: bool = Query(False, description="Incluir todas las etapas sin resolución final"),
+    q: Optional[str] = Query(None, max_length=150),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     tenant: TenantContext = Depends(get_current_tenant),
@@ -164,6 +170,8 @@ async def listar_solicitudes(
     if not tenant.tiene_permiso("movimiento:create") and not tenant.tiene_permiso("movimiento:approve"):
         raise HTTPException(status_code=403, detail="Permiso insuficiente")
     stmt = select(SolicitudMovimiento).where(SolicitudMovimiento.id_organizacion == tenant.id_organizacion)
+    if ids:
+        stmt = stmt.where(SolicitudMovimiento.id.in_(ids))
     if not tenant.tiene_permiso("movimiento:approve"):
         stmt = stmt.where(SolicitudMovimiento.id_usuario_solicitante == tenant.usuario.id)
     stmt = scope_movement_query(stmt, tenant, SolicitudMovimiento)
@@ -172,6 +180,7 @@ async def listar_solicitudes(
     if pendientes:
         stmt = stmt.where(SolicitudMovimiento.fecha_resolucion.is_(None))
 
+    stmt = filter_movement_search(stmt, SolicitudMovimiento, q)
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
@@ -180,7 +189,7 @@ async def listar_solicitudes(
     items = res.scalars().all()
 
     pages = math.ceil(total / size) if total > 0 else 1
-    return PaginatedResponse(items=items, total=total, page=page, size=size, pages=pages)
+    return PaginatedResponse(items=await present_movements(db, items, requests=True), total=total, page=page, size=size, pages=pages)
 
 
 @router.patch("/solicitudes/{id_solicitud}/aprobar", response_model=MovimientoV2Read | SolicitudMovimientoRead)
@@ -217,6 +226,7 @@ async def rechazar_solicitud(
 @router.get("/", response_model=PaginatedResponse[MovimientoV2Read])
 async def listar_movimientos(
     efecto_stock: Optional[str] = Query(None, description="Filtrar por efecto (entrada, salida, traslado)"),
+    q: Optional[str] = Query(None, max_length=150),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     tenant: TenantContext = Depends(get_current_tenant),
@@ -230,6 +240,7 @@ async def listar_movimientos(
     if efecto_stock:
         stmt = stmt.where(MovimientoV2.efecto_stock == efecto_stock)
 
+    stmt = filter_movement_search(stmt, MovimientoV2, q)
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
@@ -238,7 +249,7 @@ async def listar_movimientos(
     items = res.scalars().all()
 
     pages = math.ceil(total / size) if total > 0 else 1
-    return PaginatedResponse(items=items, total=total, page=page, size=size, pages=pages)
+    return PaginatedResponse(items=await present_movements(db, items, requests=False), total=total, page=page, size=size, pages=pages)
 
 
 @router.get("/trazabilidad", response_model=List[MovimientoV2Read])
@@ -263,7 +274,7 @@ async def consultar_trazabilidad(
 
     stmt = stmt.order_by(MovimientoV2.fecha_hora.asc())
     res = await db.execute(stmt)
-    return res.scalars().all()
+    return await present_movements(db, res.scalars().all())
 
 
 @router.get("/saldos", response_model=List[SaldoStockRead])

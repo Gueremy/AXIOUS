@@ -76,13 +76,16 @@ class ExportServiceV2:
             for cell in row:
                 cell.font = font_data
                 cell.border = border_thin
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
 
         # Ajuste de ancho de columnas
         for col in ws.columns:
             max_len = max(len(str(cell.value or "")) for cell in col)
             col_letter = col[0].column_letter
-            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 55)
 
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
         buffer = io.BytesIO()
         wb.save(buffer)
         return buffer.getvalue()
@@ -93,6 +96,8 @@ class ExportServiceV2:
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
+            title=titulo,
+            author="SalmoTrack",
             pagesize=landscape(A4),
             rightMargin=1.5 * cm,
             leftMargin=1.5 * cm,
@@ -104,19 +109,23 @@ class ExportServiceV2:
         style_titulo = ParagraphStyle("Titulo", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=16, leading=20, textColor=colors.HexColor("#1E3A8A"))
         style_sub = ParagraphStyle("Subtitulo", parent=styles["Normal"], fontName="Helvetica", fontSize=10, leading=14, textColor=colors.HexColor("#4B5563"))
         style_cell = ParagraphStyle("Celda", parent=styles["Normal"], fontName="Helvetica", fontSize=8, leading=10)
+        style_header = ParagraphStyle("Cabecera", parent=style_cell, fontName="Helvetica-Bold", textColor=colors.white)
 
         story = [
-            Paragraph(titulo, style_titulo),
-            Paragraph(subtitulo, style_sub),
+            Paragraph(escape(titulo), style_titulo),
+            Paragraph(escape(subtitulo), style_sub),
             Spacer(1, 0.5 * cm),
         ]
 
         # Preparar datos de la tabla con Paragraphs para ajuste automático de texto
-        data_table = [[Paragraph(f"<b>{escape(str(c))}</b>", style_cell) for c in cabeceras]]
+        data_table = [[Paragraph(escape(str(c)), style_header) for c in cabeceras]]
         for fila in filas:
             data_table.append([Paragraph(escape(str(c)) if c is not None else "", style_cell) for c in fila])
 
-        table = Table(data_table, repeatRows=1)
+        weights = {"producto": 2, "operario": 1.4, "aprobador": 1.4, "unidad": 0.85, "cantidad": 1.2,
+                   "referencia de auditoría": 1.3, "id movimiento": 1.3, "fecha y hora (chile)": 1.2}
+        column_weights = [weights.get(str(header).lower(), 1) for header in cabeceras]
+        table = Table(data_table, repeatRows=1, colWidths=[doc.width * weight / sum(column_weights) for weight in column_weights])
         table.setStyle(
             TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
@@ -131,5 +140,11 @@ class ExportServiceV2:
         )
 
         story.append(table)
-        doc.build(story)
+        def page_footer(canvas, document):
+            canvas.saveState()
+            canvas.setFont("Helvetica", 8)
+            canvas.setFillColor(colors.HexColor("#4B5563"))
+            canvas.drawRightString(document.pagesize[0] - document.rightMargin, 0.8 * cm, f"Página {document.page}")
+            canvas.restoreState()
+        doc.build(story, onFirstPage=page_footer, onLaterPages=page_footer)
         return buffer.getvalue()

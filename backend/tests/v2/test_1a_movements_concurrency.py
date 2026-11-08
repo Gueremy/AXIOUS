@@ -21,6 +21,58 @@ from app.models.v2 import (
 )
 
 
+@pytest.mark.asyncio
+async def test_compensation_preserves_original_and_cannot_apply_twice(client, setup_movimientos_fixture):
+    ctx = setup_movimientos_fixture
+    headers = {"Authorization": f"Bearer {ctx['token']}"}
+    original = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json={
+        "id_tipo_movimiento": ctx["tipo_entrada"].id, "id_item": ctx["item"].id,
+        "id_lote": ctx["lote"].id, "id_ubicacion_destino": ctx["ubi1"].id,
+        "cantidad": 25, "unidad_medida": "kg"})
+    assert original.status_code == 201, original.text
+    ledger = (await client.get("/api/v2/movimientos/", headers=headers)).json()["items"]
+    source = next(row for row in ledger if row["id_solicitud"] == original.json()["id"])
+    reversal = {"id_tipo_movimiento": ctx["tipo_salida"].id, "id_item": ctx["item"].id,
+        "id_lote": ctx["lote"].id, "id_ubicacion_origen": ctx["ubi1"].id,
+        "cantidad": 25, "unidad_medida": "kg", "id_movimiento_original": source["id"]}
+    result = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json=reversal)
+    assert result.status_code == 201, result.text
+    duplicate = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json=reversal)
+    assert duplicate.status_code == 409, duplicate.text
+    ledger = (await client.get("/api/v2/movimientos/", headers=headers)).json()["items"]
+    assert len(ledger) == 2
+    assert next(row for row in ledger if row["id"] == source["id"]) == source
+    assert sum(row["id_movimiento_original"] == source["id"] for row in ledger) == 1
+    balances = (await client.get("/api/v2/movimientos/saldos", headers=headers)).json()
+    assert all(Decimal(row["cantidad"]) == 0 for row in balances)
+
+
+@pytest.mark.asyncio
+async def test_compensation_lost_response_replays_with_original_link(client, setup_movimientos_fixture):
+    ctx = setup_movimientos_fixture
+    headers = {"Authorization": f"Bearer {ctx['token']}"}
+    receipt = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json={
+        "id_tipo_movimiento": ctx["tipo_entrada"].id, "id_item": ctx["item"].id,
+        "id_lote": ctx["lote"].id, "id_ubicacion_destino": ctx["ubi1"].id,
+        "cantidad": 25, "unidad_medida": "kg"})
+    assert receipt.status_code == 201, receipt.text
+    source = (await client.get("/api/v2/movimientos/", headers=headers)).json()["items"][0]
+    reversal = {"uuid_local": str(uuid.uuid4()), "id_tipo_movimiento": ctx["tipo_salida"].id,
+        "id_item": ctx["item"].id, "id_lote": ctx["lote"].id,
+        "id_ubicacion_origen": ctx["ubi1"].id, "cantidad": 25, "unidad_medida": "kg",
+        "id_movimiento_original": source["id"]}
+    first = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json=reversal)
+    assert first.status_code == 201, first.text
+    replay = await client.post("/api/v2/movimientos/sync", headers=headers, json={"movimientos": [reversal]})
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["resultados"][0]["estado"] == "duplicado", replay.text
+    ledger = (await client.get("/api/v2/movimientos/", headers=headers)).json()["items"]
+    assert len(ledger) == 2
+    assert sum(row["id_movimiento_original"] == source["id"] for row in ledger) == 1
+    balances = (await client.get("/api/v2/movimientos/saldos", headers=headers)).json()
+    assert all(Decimal(row["cantidad"]) == 0 for row in balances)
+
+
 @pytest.fixture
 async def setup_movimientos_fixture(db):
     """Configura organización, sitio, ubicaciones, items y tipos de movimiento."""
@@ -33,7 +85,7 @@ async def setup_movimientos_fixture(db):
         nombre="Jefe Operaciones",
         email=f"jefe_{uuid.uuid4().hex[:4]}@log.cl",
         password_hash="fake",
-        codigo_empleado="EMP-MOV-01",
+        codigo_empleado=f"EMP-MOV-{uuid.uuid4().hex[:8]}",
         rol="super_admin",
         id_organizacion=org.id,
         activo=True,

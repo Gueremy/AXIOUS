@@ -1,0 +1,60 @@
+# Separate v3 pilot. The existing deployment is not adopted or replaced.
+databases:
+  - name: salmotrack-v3-db
+    databaseName: salmotrack_v3
+    user: salmotrack_v3
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []
+
+services:
+  - type: web
+    name: salmotrack-v3-api
+    runtime: python
+    repo: https://github.com/Gueremy/AXIOUS
+    branch: v3
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: salmotrack-v3-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: '["https://salmotrack-v3.onrender.com"]'
+      - key: FRONTEND_URL
+        value: https://salmotrack-v3.onrender.com
+      - key: BASE_URL
+        fromService:
+          type: web
+          name: salmotrack-v3-api
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: salmotrack-v3
+    runtime: static
+    repo: https://github.com/Gueremy/salmonwise-inventory
+    branch: v3
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: salmotrack-v3-api
+          envVarKey: BASE_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache

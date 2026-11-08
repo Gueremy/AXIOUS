@@ -1,3 +1,4 @@
+from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional
@@ -24,6 +25,8 @@ from app.schemas.v2.dashboard import (
     TopItemMovimiento,
 )
 from app.services.v2.export_service import ExportServiceV2
+from app.services.v2.export_presentation import readable_cell
+from app.services.v2.movement_presentation import present_movements
 from app.services.v2.configuracion_operativa import obtener_configuracion
 
 router = APIRouter(prefix="/dashboard", tags=["V2 - Dashboard y Reportes"],
@@ -36,17 +39,22 @@ async def obtener_resumen_gerencia(
     db: AsyncSession = Depends(get_db),
 ):
     """Cuenta movimientos confirmados reales de los últimos 15 días por tenant y sitio."""
-    hoy = datetime.now(timezone.utc).date()
+    chile = ZoneInfo("America/Santiago")
+    hoy = datetime.now(timezone.utc).astimezone(chile).date()
     inicio = hoy - timedelta(days=14)
     visibles = scope_movement_query(
         select(MovimientoV2.fecha_hora, MovimientoV2.efecto_stock, MovimientoV2.id_item)
         .where(MovimientoV2.id_organizacion == tenant.id_organizacion,
-               MovimientoV2.fecha_hora >= datetime.combine(inicio, datetime.min.time(), timezone.utc)),
+               MovimientoV2.fecha_hora >= datetime.combine(inicio, datetime.min.time(), chile).astimezone(timezone.utc)),
         tenant, MovimientoV2,
     ).subquery()
-    filas = (await db.execute(select(
-        func.date(visibles.c.fecha_hora), visibles.c.efecto_stock, func.count(),
-    ).group_by(func.date(visibles.c.fecha_hora), visibles.c.efecto_stock))).all()
+    if db.bind.dialect.name == "postgresql":
+        dia_local = func.date(func.timezone("America/Santiago", visibles.c.fecha_hora))
+        filas = (await db.execute(select(dia_local, visibles.c.efecto_stock, func.count())
+            .group_by(dia_local, visibles.c.efecto_stock))).all()
+    else:
+        filas = [((fecha if fecha.tzinfo else fecha.replace(tzinfo=timezone.utc)).astimezone(chile).date(), efecto, 1)
+                 for fecha, efecto in (await db.execute(select(visibles.c.fecha_hora, visibles.c.efecto_stock))).all()]
     por_dia = {}
     for fecha, efecto, cantidad in filas:
         dia = str(fecha)
@@ -124,6 +132,14 @@ async def obtener_kpis_supervisor(
         capacidad_por_unidad[unidad] = Decimal(str(capacidad))
         ocupacion_por_unidad[unidad] = Decimal(str(ocupacion))
         porcentaje_por_unidad[unidad] = round(float(ocupacion / capacidad * 100), 2) if capacidad else 0.0
+
+    if len(capacidad_por_unidad) > 1:
+        # Heterogeneous units cannot be added: report the mean utilization of locations.
+        pct_stmt = select(func.avg(100 * Ubicacion.ocupacion_actual / Ubicacion.capacidad_maxima)).where(
+            Ubicacion.id_organizacion == org_id, Ubicacion.activo == True, Ubicacion.capacidad_maxima > 0)
+        if tenant.sitios_permitidos is not None:
+            pct_stmt = pct_stmt.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
+        pct_uso = float((await db.execute(pct_stmt)).scalar() or 0)
 
     # 2. Stock total consolidado
     stmt_stock = select(func.coalesce(func.sum(SaldoStock.cantidad), 0)).where(
@@ -240,27 +256,26 @@ async def consultar_inconsistencias_recientes(
 # ─── Servicios Reutilizables de Exportación (CSV, Excel, PDF) ─────────────────
 
 async def _obtener_datos_movimientos_export(db: AsyncSession, tenant: TenantContext) -> tuple[List[str], List[List[str]]]:
-    cabeceras = ["ID Movimiento", "Fecha y Hora", "Tipo", "Efecto", "Ítem", "Lote", "Origen", "Destino", "Cantidad", "Unidad"]
+    cabeceras = ["ID Movimiento", "Fecha y hora (Chile)", "Tipo", "Efecto", "Código producto", "Producto", "Lote", "Origen", "Destino", "Cantidad", "Unidad"]
     stmt = (
-        select(MovimientoV2, Item.codigo, Lote.numero_lote)
-        .join(Item, MovimientoV2.id_item == Item.id)
-        .outerjoin(Lote, MovimientoV2.id_lote == Lote.id)
+        select(MovimientoV2)
         .where(MovimientoV2.id_organizacion == tenant.id_organizacion)
         .order_by(MovimientoV2.fecha_hora.desc())
     )
     stmt = scope_movement_query(stmt, tenant, MovimientoV2)
-    res = await db.execute(stmt)
+    rows = await present_movements(db, (await db.execute(stmt)).scalars().all())
     filas = []
-    for mov, cod_item, num_lote in res.all():
+    for mov in rows:
         filas.append([
-            mov.id[:8],
-            mov.fecha_hora.strftime("%Y-%m-%d %H:%M"),
-            mov.id_tipo_movimiento[:8],
+            mov.id,
+            readable_cell(mov.fecha_hora),
+            mov.tipo_nombre or "Sin referencia histórica",
             mov.efecto_stock,
-            cod_item,
-            num_lote or "-",
-            mov.id_ubicacion_origen[:8] if mov.id_ubicacion_origen else "-",
-            mov.id_ubicacion_destino[:8] if mov.id_ubicacion_destino else "-",
+            mov.item_codigo or "Sin referencia histórica",
+            mov.item_nombre or "Sin referencia histórica",
+            mov.numero_lote or "-",
+            mov.ubicacion_origen_codigo or "-",
+            mov.ubicacion_destino_codigo or "-",
             str(mov.cantidad),
             mov.unidad_medida,
         ])
@@ -306,7 +321,7 @@ async def exportar_movimientos_pdf(
     cabeceras, filas = await _obtener_datos_movimientos_export(db, tenant)
     pdf_bytes = ExportServiceV2.exportar_pdf(
         titulo="Reporte Oficial de Movimientos de Inventario",
-        subtitulo=f"Organización ID: {tenant.id_organizacion} — Generado: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC",
+        subtitulo=f"Organización: {tenant.organizacion.nombre} — Generado: {readable_cell(datetime.now(timezone.utc))}",
         cabeceras=cabeceras,
         filas=filas,
     )

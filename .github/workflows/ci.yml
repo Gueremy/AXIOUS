@@ -1,0 +1,48 @@
+name: Backend validation
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      DATABASE_URL_SYNC: "sqlite:///:memory:"
+      SECRET_KEY: ci-only-test-key-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m pytest tests -q
+
+  postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: axious_v2_completion_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test -d axious_v2_completion_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/axious_v2_completion_test
+      DATABASE_URL_SYNC: postgresql://test:test@localhost:5432/axious_v2_completion_test
+      SECRET_KEY: ci-only-test-key-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: alembic upgrade head
+      - run: python -m pytest tests_postgres -q

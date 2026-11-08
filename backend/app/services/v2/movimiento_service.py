@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+from pydantic import ValidationError
+from app.schemas.v2.proveedor import LoteNuevo, ProveedorData
 """
 app/services/v2/movimiento_service.py
 Servicio central de movimientos y gestión transaccional segura del stock.
@@ -56,10 +59,35 @@ class MovimientoService:
         uuid_local: Optional[str] = None,
         atributos: Optional[dict] = None,
         auto_commit: bool = True,
+        lote_nuevo: Optional[LoteNuevo] = None,
+        fecha_hora_local: Optional[datetime] = None,
+        id_movimiento_original: Optional[str] = None,
     ) -> SolicitudMovimiento:
         """Valida y crea una solicitud de movimiento; si no requiere aprobación, la ejecuta de inmediato."""
         if cantidad <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La cantidad debe ser mayor a cero")
+
+        atributos = dict(atributos or {})
+        atributos.pop("movimiento_original_id", None)
+        if id_movimiento_original:
+            if not tenant.tiene_permiso("stock:adjust"):
+                raise HTTPException(403, detail="Se requiere permiso de ajuste para solicitar un movimiento compensatorio")
+            original = (await db.execute(select(MovimientoV2).where(
+                MovimientoV2.id == id_movimiento_original,
+                MovimientoV2.id_organizacion == tenant.id_organizacion))).scalar_one_or_none()
+            if not original:
+                raise HTTPException(404, detail="Movimiento original no encontrado")
+            for location_id in (original.id_ubicacion_origen, original.id_ubicacion_destino):
+                if location_id:
+                    await require_location_access(db, tenant, location_id)
+            atributos["movimiento_original_id"] = original.id
+        if fecha_hora_local:
+            atributos["capturado_en_dispositivo"] = fecha_hora_local.isoformat()
+        if isinstance(atributos.get("proveedor"), dict):
+            try:
+                atributos["proveedor"] = ProveedorData.model_validate(atributos["proveedor"]).model_dump()
+            except ValidationError as exc:
+                raise HTTPException(422, detail="Revisa el RUT y la razón social del proveedor") from exc
 
         # Los módulos habilitados registran sus propias validaciones.
         from app.core.modules.registry import ModuleRegistry
@@ -94,6 +122,32 @@ class MovimientoService:
             )
 
         # 3. Validar Lote si se envía
+        if lote_nuevo:
+            if id_lote or tipo.efecto_stock != "entrada":
+                raise HTTPException(422, detail="Un lote nuevo solo puede recibirse en una entrada sin lote existente")
+            if db.bind.dialect.name == "postgresql":
+                await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:org), hashtext(:lot))"),
+                                 {"org": tenant.id_organizacion, "lot": f"{id_item}:{lote_nuevo.numero_lote}"})
+            existing = (await db.execute(select(Lote).where(Lote.id_organizacion == tenant.id_organizacion,
+                Lote.id_item == id_item, Lote.numero_lote == lote_nuevo.numero_lote))).scalar_one_or_none()
+            def normalized_date(value):
+                return ((value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)).isoformat()) if value else None
+            if existing:
+                if (normalized_date(existing.fecha_fabricacion) != normalized_date(lote_nuevo.fecha_fabricacion)
+                    or normalized_date(existing.fecha_vencimiento) != normalized_date(lote_nuevo.fecha_vencimiento)
+                    or (existing.atributos or {}).get("proveedor") != lote_nuevo.proveedor.model_dump()):
+                    raise HTTPException(409, detail="El lote ya existe con otros datos. Revisa el proveedor y las fechas")
+                id_lote = existing.id
+            else:
+                new_lot = Lote(id_organizacion=tenant.id_organizacion, id_item=id_item,
+                    numero_lote=lote_nuevo.numero_lote, fecha_fabricacion=lote_nuevo.fecha_fabricacion,
+                    fecha_vencimiento=lote_nuevo.fecha_vencimiento,
+                    atributos={"proveedor": lote_nuevo.proveedor.model_dump()})
+                db.add(new_lot)
+                await db.flush()
+                id_lote = new_lot.id
+            atributos["proveedor"] = lote_nuevo.proveedor.model_dump()
+
         if id_lote:
             stmt_lote = select(Lote).where(
                 Lote.id == id_lote,
@@ -154,6 +208,12 @@ class MovimientoService:
             )
             dup = (await db.execute(stmt_dup)).scalar_one_or_none()
             if dup:
+                if (dup.id_usuario_solicitante != tenant.usuario.id or dup.id_tipo_movimiento != id_tipo_movimiento
+                    or dup.id_item != id_item or dup.id_lote != id_lote or dup.cantidad != cantidad
+                    or dup.unidad_medida != unidad_medida or dup.id_ubicacion_origen != id_ubicacion_origen
+                    or dup.id_ubicacion_destino != id_ubicacion_destino or dup.observaciones != observaciones
+                    or (dup.atributos or {}) != atributos):
+                    raise HTTPException(409, detail="El identificador de operación ya fue utilizado con otros datos")
                 return dup
 
         solicitud = SolicitudMovimiento(
@@ -318,6 +378,24 @@ class MovimientoService:
         actualiza saldos y emite el movimiento inmutable.
         """
         efecto = tipo.efecto_stock
+        original_id = (solicitud.atributos or {}).get("movimiento_original_id")
+        if original_id:
+            original = (await db.execute(select(MovimientoV2).where(
+                MovimientoV2.id == original_id, MovimientoV2.id_organizacion == tenant.id_organizacion
+            ).with_for_update())).scalar_one_or_none()
+            if not original or original.id_movimiento_original:
+                raise HTTPException(409, detail="El movimiento original no admite este reverso")
+            inverse = {"entrada": "salida", "salida": "entrada", "traslado": "traslado"}.get(original.efecto_stock)
+            if (efecto != inverse or solicitud.id_item != original.id_item or solicitud.id_lote != original.id_lote
+                or solicitud.cantidad != original.cantidad or solicitud.unidad_medida != original.unidad_medida
+                or solicitud.id_ubicacion_origen != original.id_ubicacion_destino
+                or solicitud.id_ubicacion_destino != original.id_ubicacion_origen):
+                raise HTTPException(422, detail="El reverso debe compensar exactamente el producto, lote, cantidad y ubicaciones originales")
+            compensated = (await db.execute(select(MovimientoV2.id).where(
+                MovimientoV2.id_organizacion == tenant.id_organizacion,
+                MovimientoV2.id_movimiento_original == original.id))).first()
+            if compensated:
+                raise HTTPException(409, detail="El movimiento original ya tiene un reverso confirmado")
 
         # 1. Bloqueo determinista de Ubicaciones involucradas (ordenadas por UUID para prevenir deadlocks)
         ubis_ids = sorted([u for u in [solicitud.id_ubicacion_origen, solicitud.id_ubicacion_destino] if u])
@@ -410,6 +488,7 @@ class MovimientoService:
         movimiento = MovimientoV2(
             id_organizacion=tenant.id_organizacion,
             id_solicitud=solicitud.id,
+            id_movimiento_original=original_id,
             id_tipo_movimiento=solicitud.id_tipo_movimiento,
             id_item=solicitud.id_item,
             id_lote=solicitud.id_lote,

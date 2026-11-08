@@ -314,3 +314,23 @@ async def consultar_inconsistencias_job(
         stmt_inc = stmt_inc.where(Inconsistencia.id_ubicacion.in_(allowed_location_ids(tenant)))
     res = await db.execute(stmt_inc)
     return res.scalars().all()
+
+
+@router.get("/nomenclatura")
+async def listar_nomenclatura(tenant: TenantContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
+    from app.models.v2 import Sitio, Zona, Ubicacion
+    stmt = select(Ubicacion, Zona, Sitio).join(Zona, Ubicacion.id_zona == Zona.id).join(Sitio, Zona.id_sitio == Sitio.id).where(
+        Ubicacion.id_organizacion == tenant.id_organizacion, Ubicacion.activo == True)
+    if tenant.sitios_permitidos is not None:
+        stmt = stmt.where(Ubicacion.id.in_(allowed_location_ids(tenant)))
+    zones = {zone.id: zone for zone in (await db.execute(select(Zona).where(Zona.id_organizacion == tenant.id_organizacion))).scalars()}
+    result = []
+    for location, zone, site in (await db.execute(stmt.order_by(Sitio.codigo, Zona.codigo, Ubicacion.codigo))).all():
+        route, visited, current = [], set(), zone
+        while current and current.id not in visited:
+            route.insert(0, current.codigo)
+            visited.add(current.id)
+            current = zones.get(current.id_zona_padre)
+        result.append({"id": location.id, "codigo_sitio": site.codigo, "codigo_zona": zone.codigo,
+            "codigo_ubicacion": location.codigo, "ruta": "/".join([site.codigo, *route, location.codigo])})
+    return result

@@ -1,3 +1,4 @@
+from app.schemas.v2.proveedor import LoteNuevo
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Literal, Optional
@@ -61,6 +62,9 @@ class TipoMovimientoRead(BaseModel):
 
 
 class SolicitudMovimientoCreate(BaseModel):
+    id_movimiento_original: Optional[str] = None
+    lote_nuevo: Optional[LoteNuevo] = None
+    fecha_hora_local: Optional[datetime] = None
     id_tipo_movimiento: str
     id_item: str
     id_lote: Optional[str] = None
@@ -77,7 +81,21 @@ class SolicitudRechazar(BaseModel):
     motivo: str = Field(..., min_length=3, max_length=300)
 
 
-class SolicitudMovimientoRead(BaseModel):
+class MovementPresentation(BaseModel):
+    efecto_stock: Optional[str] = None
+    item_nombre: Optional[str] = None
+    item_codigo: Optional[str] = None
+    numero_lote: Optional[str] = None
+    fecha_vencimiento: Optional[datetime] = None
+    tipo_codigo: Optional[str] = None
+    tipo_nombre: Optional[str] = None
+    ubicacion_origen_codigo: Optional[str] = None
+    ubicacion_destino_codigo: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    aprobador_nombre: Optional[str] = None
+
+
+class SolicitudMovimientoRead(MovementPresentation):
     id: str
     id_organizacion: str
     id_tipo_movimiento: str
@@ -100,7 +118,7 @@ class SolicitudMovimientoRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class MovimientoV2Read(BaseModel):
+class MovimientoV2Read(MovementPresentation):
     id: str
     id_organizacion: str
     id_solicitud: Optional[str] = None

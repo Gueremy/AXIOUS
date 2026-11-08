@@ -62,6 +62,13 @@ async def update_usuario(
         raise HTTPException(status_code=403, detail="No tienes permisos sobre este operario")
 
     update_data = usuario_in.model_dump(exclude_unset=True)
+    if current_user.rol == "admin_sede":
+        if usuario.rol not in ("operario", "jefe_bodega"):
+            raise HTTPException(403, detail="Solo puedes administrar operarios y jefes de tu sede")
+        if "rol" in update_data and update_data["rol"] not in ("operario", "jefe_bodega"):
+            raise HTTPException(403, detail="Solo un superadministrador puede asignar ese rol")
+        if "id_sede" in update_data and update_data["id_sede"] != current_user.id_sede:
+            raise HTTPException(403, detail="No puedes trasladar usuarios a otra sede")
     if "password" in update_data:
         del update_data["password"] # No cambiar la password por acá
 

@@ -18,6 +18,17 @@ from httpx import AsyncClient
 import openpyxl
 
 from app.core.security import create_access_token
+
+
+def test_location_alias_preserves_original_code_and_leading_zeroes():
+    from app.modules.importacion.services.mapping import MappingService
+    original = {"POS": "0007", "SKU": "0012", "QTY": "2"}
+    mapping = {"codigo_ubicacion": "POS", "codigo_item": "SKU", "cantidad": "QTY",
+        "__equivalencias": {"0007": {"codigo_sitio": "S01", "codigo_zona": "B01-SEC01", "codigo_ubicacion": "P0001"}}}
+    row = MappingService.normalizar_filas([original], mapping)[0]
+    assert row["codigo_ubicacion"] == "P0001" and row["codigo_sitio"] == "S01"
+    assert row["codigo_item"] == "0012" and row["datos_crudos"]["POS"] == "0007"
+    assert original["POS"] == "0007"
 from app.models.usuario import Usuario
 from app.models.v2 import (
     Organizacion, Sitio, Zona, Ubicacion,

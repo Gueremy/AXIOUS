@@ -86,6 +86,8 @@ async def test_webhook_encrypted_queue_and_retry(monkeypatch):
     attempts = []
 
     async def fake_dispatch(url, provided_secret, payload):
+        if payload["id_evento"] != event_id:
+            return True
         attempts.append((url, provided_secret, payload["id_evento"]))
         return len(attempts) >= 2
 

@@ -362,3 +362,115 @@ async def test_offline_sync_cross_tenant_rejected(client: AsyncClient, setup_syn
     ))).scalar_one()
     assert alert.id_ubicacion is None
     assert alert.id_sitio is None
+
+
+@pytest.mark.asyncio
+async def test_transient_sync_is_retryable_and_hides_internal_details(client, setup_sync_fixture, monkeypatch):
+    from app.services.v2.movimiento_service import MovimientoService
+    async def unavailable(*args, **kwargs):
+        raise RuntimeError("private database connection information")
+    monkeypatch.setattr(MovimientoService, "crear_solicitud", unavailable)
+    ctx=setup_sync_fixture
+    response=await client.post("/api/v2/movimientos/sync",
+        headers={"Authorization": f"Bearer {ctx['token_a']}"}, json={"movimientos":[{
+            "uuid_local":str(uuid.uuid4()), "id_tipo_movimiento":ctx["tipo_ingreso"].id,
+            "id_item":ctx["item_a"].id, "id_ubicacion_destino":ctx["ubi_a1"].id,
+            "cantidad":2, "unidad_medida":"kg"}]})
+    assert response.status_code == 200, response.text
+    body=response.json()
+    assert body["resultados"][0]["estado"] == "reintentar"
+    assert body["reintentables"] == 1 and body["rechazados"] == 0
+    assert "private database" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_qr_v2_respects_tenant_scope(client, setup_sync_fixture):
+    ctx=setup_sync_fixture
+    headers={"Authorization":f"Bearer {ctx['token_a']}"}
+    response=await client.get(f"/api/v2/ubicaciones/{ctx['ubi_a1'].id}/qr", headers=headers)
+    assert response.status_code == 200, response.text
+    assert "image/svg+xml" in response.headers["content-type"]
+    assert "<svg" in response.text
+    foreign=await client.get(f"/api/v2/ubicaciones/{ctx['ubi_b'].id}/qr", headers=headers)
+    assert foreign.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_prepared_package_and_readable_ledger(client, setup_sync_fixture):
+    ctx = setup_sync_fixture
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+    prepared = await client.get("/api/v2/sesion/offline", headers=headers)
+    assert prepared.status_code == 200, prepared.text
+    package = prepared.json()
+    assert package["user_id"] == ctx["user_a"].id
+    assert {row["id"] for row in package["locations"]} == {ctx["ubi_a1"].id, ctx["ubi_a2"].id}
+    assert ctx["lote_a"].id in {row["id"] for row in package["lots"]}
+    assert "password_hash" not in prepared.text
+    create = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json={
+        "id_tipo_movimiento": ctx["tipo_ingreso"].id, "id_item": ctx["item_a"].id,
+        "id_lote": ctx["lote_a"].id, "id_ubicacion_destino": ctx["ubi_a1"].id,
+        "cantidad": 2, "unidad_medida": "kg"})
+    assert create.status_code == 201, create.text
+    ledger = await client.get("/api/v2/movimientos/?q=Insumo", headers=headers)
+    assert ledger.status_code == 200, ledger.text
+    row = ledger.json()["items"][0]
+    assert row["item_nombre"] == ctx["item_a"].nombre
+    assert row["numero_lote"] == ctx["lote_a"].numero_lote
+    assert row["ubicacion_destino_codigo"] == ctx["ubi_a1"].codigo
+    assert row["usuario_nombre"] == ctx["user_a"].nombre
+    missing = await client.get("/api/v2/movimientos/?q=does-not-exist", headers=headers)
+    assert missing.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_new_lot_and_receipt_are_idempotent_and_keep_capture_time(client, setup_sync_fixture, db):
+    ctx = setup_sync_fixture
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+    operation = {
+        "uuid_local": str(uuid.uuid4()), "id_tipo_movimiento": ctx["tipo_ingreso"].id,
+        "id_item": ctx["item_a"].id, "id_ubicacion_destino": ctx["ubi_a1"].id,
+        "cantidad": 2, "unidad_medida": "kg", "fecha_hora_local": "2026-11-08T01:02:03Z",
+        "lote_nuevo": {"numero_lote": "LOTE-NUEVO", "fecha_vencimiento": "2027-01-01T00:00:00Z",
+            "proveedor": {"rut": "76.123.456-0", "razon_social": "Empresa de prueba"}},
+    }
+    first = await client.post("/api/v2/movimientos/sync", headers=headers, json={"movimientos": [operation]})
+    assert first.json()["sincronizados"] == 1, first.text
+    again = await client.post("/api/v2/movimientos/sync", headers=headers, json={"movimientos": [operation]})
+    assert again.json()["resultados"][0]["estado"] == "duplicado", again.text
+    lots = (await db.execute(select(Lote).where(Lote.id_item == ctx["item_a"].id, Lote.numero_lote == "LOTE-NUEVO"))).scalars().all()
+    assert len(lots) == 1
+    assert lots[0].atributos["proveedor"]["rut"] == "76123456-0"
+    ledger = await client.get("/api/v2/movimientos/?q=LOTE-NUEVO", headers=headers)
+    assert ledger.json()["total"] == 1
+    assert ledger.json()["items"][0]["atributos"]["capturado_en_dispositivo"].startswith("2026-11-08T01:02:03")
+    conflict = await client.post("/api/v2/movimientos/sync", headers=headers,
+                                 json={"movimientos": [{**operation, "cantidad": 3}]})
+    assert conflict.json()["resultados"][0]["estado"] == "rechazado", conflict.text
+
+
+@pytest.mark.asyncio
+async def test_invalid_supplier_rut_is_rejected_before_stock_changes(client, setup_sync_fixture):
+    ctx = setup_sync_fixture
+    response = await client.post("/api/v2/movimientos/solicitudes",
+        headers={"Authorization": f"Bearer {ctx['token_a']}"}, json={
+            "id_tipo_movimiento": ctx["tipo_ingreso"].id, "id_item": ctx["item_a"].id,
+            "id_ubicacion_destino": ctx["ubi_a1"].id, "cantidad": 2, "unidad_medida": "kg",
+            "lote_nuevo": {"numero_lote": "INVALIDO", "proveedor": {"rut": "76123456-1", "razon_social": "Prueba"}}})
+    assert response.status_code == 422, response.text
+
+
+@pytest.mark.asyncio
+async def test_request_status_lookup_keeps_id_filter_and_authorization(client, setup_sync_fixture):
+    ctx = setup_sync_fixture
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+    created = await client.post("/api/v2/movimientos/solicitudes", headers=headers, json={
+        "id_tipo_movimiento": ctx["tipo_ingreso"].id, "id_item": ctx["item_a"].id,
+        "id_lote": ctx["lote_a"].id, "id_ubicacion_destino": ctx["ubi_a1"].id,
+        "cantidad": 2, "unidad_medida": "kg"})
+    assert created.status_code == 201, created.text
+    request_id = created.json()["id"]
+    found = await client.get(f"/api/v2/movimientos/solicitudes?ids={request_id}&ids={uuid.uuid4()}", headers=headers)
+    assert found.status_code == 200, found.text
+    assert [row["id"] for row in found.json()["items"]] == [request_id]
+    missing = await client.get(f"/api/v2/movimientos/solicitudes?ids={uuid.uuid4()}", headers=headers)
+    assert missing.status_code == 200 and missing.json()["total"] == 0

@@ -27,3 +27,7 @@ logs/
 
 # Entornos generados por herramientas del sistema
 .gemini/
+
+.cache/
+playwright-report/
+test-results/

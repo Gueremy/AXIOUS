@@ -166,3 +166,24 @@ async def actualizar_ubicacion(
     await db.commit()
     await db.refresh(ubi)
     return ubi
+
+
+@router.get("/{id_ubicacion}/qr")
+async def generar_qr_ubicacion(
+    id_ubicacion: str,
+    tenant: TenantContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Etiqueta v2 sin nombres ni RUT; aplica el mismo control de acceso del detalle."""
+    import io
+    from urllib.parse import quote
+    import qrcode
+    from fastapi import Response
+    from qrcode.image.svg import SvgPathImage
+    ubicacion = await obtener_ubicacion(id_ubicacion, tenant, db)
+    from app.core.config import settings
+    imagen = qrcode.make(settings.FRONTEND_URL.rstrip("/") + "/locations/" + quote(ubicacion.id, safe=""), image_factory=SvgPathImage)
+    buffer = io.BytesIO()
+    imagen.save(buffer)
+    return Response(buffer.getvalue(), media_type="image/svg+xml",
+                    headers={"Cache-Control": "private, no-store"})

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # En producción: https://axious-backend.onrender.com
     # En desarrollo: dejar vacío o http://localhost:8000
     BASE_URL: str = "http://localhost:8000"
+    FRONTEND_URL: str = "http://localhost:8080"
 
 
 settings = Settings()

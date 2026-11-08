@@ -164,6 +164,7 @@ async def obtener_hechos_movimientos(
     fecha_desde: Optional[datetime] = Query(None, description="Filtro fecha inicio ISO"),
     fecha_hasta: Optional[datetime] = Query(None, description="Filtro fecha fin ISO"),
     limit: int = Query(5000, ge=1, le=20000),
+    offset: int = Query(0, ge=0),
     tenant: TenantContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -191,11 +192,15 @@ async def obtener_hechos_movimientos(
     if fecha_hasta:
         stmt = stmt.where(MovimientoV2.fecha_hora <= fecha_hasta)
 
-    stmt = stmt.order_by(MovimientoV2.fecha_hora.asc()).limit(limit)
+    stmt = stmt.order_by(MovimientoV2.fecha_hora.asc(), MovimientoV2.id.asc()).offset(offset if isinstance(offset, int) else 0).limit(limit)
     res = await db.execute(stmt)
 
+    rows = res.all()
+    location_ids = {value for row in rows for value in (row[0].id_ubicacion_origen, row[0].id_ubicacion_destino) if value}
+    location_codes = dict((await db.execute(select(Ubicacion.id, Ubicacion.codigo).where(
+        Ubicacion.id_organizacion == tenant.id_organizacion, Ubicacion.id.in_(location_ids)))).all())
     movs = []
-    for mov, tipo_cod, it_cod, num_lot, emp_cod in res.all():
+    for mov, tipo_cod, it_cod, num_lot, emp_cod in rows:
         movs.append(
             BIMovimientoFact(
                 id_movimiento=mov.id,
@@ -205,8 +210,8 @@ async def obtener_hechos_movimientos(
                 efecto_stock=mov.efecto_stock,
                 codigo_item=it_cod,
                 numero_lote=num_lot,
-                codigo_ubicacion_origen=mov.id_ubicacion_origen,
-                codigo_ubicacion_destino=mov.id_ubicacion_destino,
+                codigo_ubicacion_origen=location_codes.get(mov.id_ubicacion_origen),
+                codigo_ubicacion_destino=location_codes.get(mov.id_ubicacion_destino),
                 cantidad=mov.cantidad,
                 unidad_medida=mov.unidad_medida,
                 codigo_empleado_operario=emp_cod or "EXTERNO",

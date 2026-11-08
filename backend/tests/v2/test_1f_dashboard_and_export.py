@@ -16,6 +16,45 @@ import openpyxl
 from sqlalchemy import select
 
 from app.core.security import create_access_token
+
+
+@pytest.mark.asyncio
+async def test_bi_complete_export_does_not_truncate_at_twenty_thousand(client, db, setup_dashboard_fixture):
+    import csv
+    import json
+    from sqlalchemy import insert
+    ctx = setup_dashboard_fixture
+    original = (await db.execute(select(MovimientoV2).where(MovimientoV2.id_organizacion == ctx["org_a"].id))).scalar_one()
+    await db.execute(insert(MovimientoV2), [{
+        "id": str(uuid.uuid4()), "id_organizacion": original.id_organizacion,
+        "id_tipo_movimiento": original.id_tipo_movimiento, "id_item": original.id_item,
+        "id_lote": original.id_lote, "id_ubicacion_destino": original.id_ubicacion_destino,
+        "id_usuario": original.id_usuario, "cantidad": 1, "unidad_medida": "kg",
+        "efecto_stock": "entrada", "atributos": {},
+    } for _ in range(20001)])
+    await db.commit()
+    response = await client.get("/api/v2/exportaciones/bi-movimientos/csv/completo", headers={"Authorization": f"Bearer {ctx['token_a']}"})
+    assert response.status_code == 200, response.text
+    assert response.headers["X-Export-Total"] == "20002"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert json.loads(archive.read("manifest.json"))["total"] == 20002
+        pages = [name for name in archive.namelist() if name.endswith(".csv")]
+        rows = sum(len(list(csv.reader(io.StringIO(archive.read(name).decode("utf-8-sig")), delimiter=";"))) - 1 for name in pages)
+        assert rows == 20002
+        first = archive.read(pages[0]).decode("utf-8-sig")
+        assert "Producto" in first and "Lote" in first and "id_item" not in first
+
+
+@pytest.mark.asyncio
+async def test_readable_export_keeps_search_filters(client, setup_dashboard_fixture):
+    ctx = setup_dashboard_fixture
+    headers = {"Authorization": f"Bearer {ctx['token_a']}"}
+    response = await client.get("/api/v2/exportaciones/movimientos/csv?q=Fresco", headers=headers)
+    assert response.status_code == 200, response.text
+    content = response.content.decode("utf-8-sig")
+    assert "Salmón Fresco" in content and "LOT-DSH-01" in content
+    missing = await client.get("/api/v2/exportaciones/movimientos/csv?q=no-such-product", headers=headers)
+    assert missing.headers["X-Export-Total"] == "0"
 from app.models.usuario import Usuario
 from app.models.v2 import (
     Organizacion, Sitio, Zona, Ubicacion,
@@ -298,6 +337,9 @@ async def test_exportacion_movimientos_csv_excel_pdf(client: AsyncClient, setup_
     assert "text/csv" in resp_csv.headers["content-type"]
     csv_text = resp_csv.content.decode("utf-8-sig")
     assert "ID Movimiento" in csv_text
+    assert "Salmón Fresco Calibre 4-5" in csv_text
+    assert "UBI-DSH-01" in csv_text
+    assert "Fecha y hora (Chile)" in csv_text
     assert "rut" not in csv_text.lower()
 
     # 2. Excel (.xlsx)
