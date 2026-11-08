@@ -5,7 +5,52 @@ databases:
     user: salmotrack_v3
     plan: free
     postgresMajorVersion: "16"
-    ipAllowList: []
+    # PowerBI.SouthCentralUS, Microsoft service tags 2026-11-02. Review weekly.
+    ipAllowList:
+      - source: 4.150.35.64/27
+        description: Power BI South Central US
+      - source: 4.150.35.96/28
+        description: Power BI South Central US
+      - source: 4.150.35.112/29
+        description: Power BI South Central US
+      - source: 13.73.248.4/31
+        description: Power BI South Central US
+      - source: 13.73.248.48/28
+        description: Power BI South Central US
+      - source: 13.73.248.64/27
+        description: Power BI South Central US
+      - source: 13.85.231.128/26
+        description: Power BI South Central US
+      - source: 20.65.133.80/29
+        description: Power BI South Central US
+      - source: 20.65.134.192/27
+        description: Power BI South Central US
+      - source: 20.65.134.224/28
+        description: Power BI South Central US
+      - source: 20.65.134.240/30
+        description: Power BI South Central US
+      - source: 20.65.135.16/28
+        description: Power BI South Central US
+      - source: 20.97.33.248/29
+        description: Power BI South Central US
+      - source: 20.97.34.128/26
+        description: Power BI South Central US
+      - source: 20.97.34.192/28
+        description: Power BI South Central US
+      - source: 20.165.94.192/27
+        description: Power BI South Central US
+      - source: 40.119.8.76/30
+        description: Power BI South Central US
+      - source: 40.119.11.64/26
+        description: Power BI South Central US
+      - source: 48.221.137.0/26
+        description: Power BI South Central US
+      - source: 145.132.193.64/27
+        description: Power BI South Central US
+      - source: 172.215.129.128/26
+        description: Power BI South Central US
+      - source: 172.215.132.176/28
+        description: Power BI South Central US
 
 services:
   - type: web

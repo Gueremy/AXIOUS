@@ -9,7 +9,7 @@ import psycopg2
 from psycopg2 import sql
 import pytest
 from app.core.config import settings
-from scripts.bootstrap_pilot_bi import bootstrap, PILOT_ID
+from scripts.bootstrap_pilot_bi import bootstrap, verify_reader, PILOT_ID
 
 
 def test_pilot_bootstrap_with_database_owner_without_superuser():
@@ -43,6 +43,7 @@ def test_pilot_bootstrap_with_database_owner_without_superuser():
                     assert cursor.fetchone()[0] == 0
                     cursor.execute("SELECT rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls FROM pg_roles WHERE rolname=%s", (reader,))
                     assert cursor.fetchone() == (False,) * 5
+            verify_reader(env["DATABASE_URL_SYNC"].replace("postgresql+psycopg2://", "postgresql://"), reader, password)
             with psycopg2.connect(**params, dbname=database, user=reader, password=password) as connection:
                 with connection.cursor() as cursor:
                     cursor.execute("SELECT count(*) FROM salmotrack_bi.stock")

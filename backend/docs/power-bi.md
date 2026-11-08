@@ -27,10 +27,12 @@ PostgreSQL, base `salmotrack_v3`, autenticación básica, conexión cifrada y
 privacidad Organización. Obtener el hostname externo de Connect en la base
 Render, sin usar su usuario administrador en Power BI.
 
-La base sigue con `ipAllowList: []`. Antes de guardar/probar la conexión hay
-que permitir exclusivamente los rangos de salida del servicio Power BI
-correspondiente o configurar un gateway con salida de IP conocida. No abrir
-`0.0.0.0/0`. Una conexión configurada no equivale a un modelo semántico o un
+La cuenta Power BI verificó como región Centro-sur de EE. UU. (Texas). El
+Blueprint permite los 22 rangos IPv4 de `PowerBI.SouthCentralUS` del archivo
+oficial Microsoft ServiceTags_Public_20261102.json (revisar semanalmente):
+https://www.microsoft.com/en-us/download/details.aspx?id=56519.
+No permite `0.0.0.0/0` ni clientes locales. Si cambia la región o se usa un
+gateway, revisar la lista antes de probar la conexión. Una conexión configurada no equivale a un modelo semántico o un
 informe publicado: verificar por separado conexión, carga y actualización.
 
 La prueba `tests_postgres/test_pilot_bootstrap.py` migra una base temporal con
