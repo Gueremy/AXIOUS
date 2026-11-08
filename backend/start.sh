@@ -15,5 +15,9 @@ echo "==> DATABASE_URL driver: ${DATABASE_URL%%://*}"
 echo "==> Ejecutando migraciones Alembic..."
 alembic upgrade head
 
+if [ "${SALMOTRACK_BOOTSTRAP_PILOT_BI:-}" = "1" ]; then
+    python scripts/bootstrap_pilot_bi.py
+fi
+
 echo "==> Iniciando Uvicorn en puerto $PORT..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --workers 1

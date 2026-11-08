@@ -27,6 +27,10 @@ services:
         generateValue: true
       - key: ENVIRONMENT
         value: production
+      - key: SALMOTRACK_BOOTSTRAP_PILOT_BI
+        value: "1"
+      - key: POWER_BI_PASSWORD
+        generateValue: true
       - key: CORS_ORIGINS
         value: '["https://salmotrack-v3-qq8r.onrender.com"]'
       - key: FRONTEND_URL
