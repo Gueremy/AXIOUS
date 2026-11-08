@@ -28,9 +28,9 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: CORS_ORIGINS
-        value: '["https://salmotrack-v3.onrender.com"]'
+        value: '["https://salmotrack-v3-qq8r.onrender.com"]'
       - key: FRONTEND_URL
-        value: https://salmotrack-v3.onrender.com
+        value: https://salmotrack-v3-qq8r.onrender.com
       - key: BASE_URL
         fromService:
           type: web
