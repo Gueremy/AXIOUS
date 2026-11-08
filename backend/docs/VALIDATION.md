@@ -19,7 +19,7 @@ Si el lanzador npm del sandbox no encuentra npm-cli.js, se usó `node C:\nvm4w\n
 Set-Location C:\Proyectos\salmotrack\backend\backend
 $env:DATABASE_URL='sqlite+aiosqlite:///:memory:'
 $env:DATABASE_URL_SYNC='sqlite:///:memory:'
-$env:SECRET_KEY='local-test-only-key-not-production'
+$env:SECRET_KEY=$env:SALMOTRACK_TEST_SECRET_KEY
 ..\.venv\Scripts\python.exe -m pytest tests -q --disable-warnings
 ```
 
@@ -41,7 +41,7 @@ Si Windows/sandbox deja colgado el cierre automático, administrar los servidore
 Set-Location C:\Proyectos\salmotrack\backend\backend
 $env:DATABASE_URL='sqlite+aiosqlite:///./.cache/browser-test.sqlite'
 $env:DATABASE_URL_SYNC='sqlite:///./.cache/browser-test.sqlite'
-$env:SECRET_KEY='browser-tests-only-not-production'
+$env:SECRET_KEY=$env:SALMOTRACK_TEST_SECRET_KEY
 $env:ENVIRONMENT='test'
 $env:CORS_ORIGINS='["http://localhost:4173"]'
 ..\.venv\Scripts\python.exe scripts/seed_browser_test.py
@@ -71,9 +71,9 @@ Desde backend/backend, el clúster local ya inicializado puede arrancarse con:
 Otra terminal, desde la misma carpeta:
 
 ```powershell
-$env:DATABASE_URL='postgresql+asyncpg://test:salmotrack-local-test-only@127.0.0.1:55432/axious_v2_completion_test'
-$env:DATABASE_URL_SYNC='postgresql://test:salmotrack-local-test-only@127.0.0.1:55432/axious_v2_completion_test'
-$env:SECRET_KEY='local-test-only-key-not-production'
+$env:DATABASE_URL=$env:SALMOTRACK_TEST_DATABASE_URL_ASYNC
+$env:DATABASE_URL_SYNC=$env:SALMOTRACK_TEST_DATABASE_URL_SYNC
+$env:SECRET_KEY=$env:SALMOTRACK_TEST_SECRET_KEY
 $env:ENVIRONMENT='test'
 ..\.venv\Scripts\python.exe -m alembic upgrade head
 ..\.venv\Scripts\python.exe -m alembic check
@@ -87,6 +87,8 @@ La contraseña anterior es exclusivamente de este clúster sintético. No reutil
 ```
 
 Para otra instalación PostgreSQL, crear una base desechable con ese nombre y adaptar las URLs. El workflow backend también levanta PostgreSQL 16 desde cero. Configuración Power BI: `backend/backend/docs/power-bi.md`.
+
+Definir previamente `SALMOTRACK_TEST_SECRET_KEY`, `SALMOTRACK_TEST_DATABASE_URL_ASYNC` y `SALMOTRACK_TEST_DATABASE_URL_SYNC` en el entorno local de pruebas. Las URLs deben apuntar exclusivamente a la base desechable `axious_v2_completion_test` con credenciales locales temporales. No se publican sus valores.
 
 ## Piloto v3 publicado
 
