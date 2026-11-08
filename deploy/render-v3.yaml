@@ -49,7 +49,7 @@ services:
         fromService:
           type: web
           name: salmotrack-v3-api
-          envVarKey: BASE_URL
+          envVarKey: RENDER_EXTERNAL_URL
     routes:
       - type: rewrite
         source: /*
