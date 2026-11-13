@@ -297,7 +297,9 @@ async def register(
 
 # ─── POST /auth/forgot-password ───────────────────────────────────────────────
 @router.post("/forgot-password", summary="Solicitar recuperación de clave")
+@limiter.limit("5/5minutes")
 async def forgot_password(
+    request: Request,
     body: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db)
 ):
@@ -322,7 +324,9 @@ async def forgot_password(
 
 # ─── POST /auth/reset-password ────────────────────────────────────────────────
 @router.post("/reset-password", summary="Restablecer contraseña con token")
+@limiter.limit("5/5minutes")
 async def reset_password(
+    request: Request,
     body: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db)
 ):

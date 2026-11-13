@@ -76,6 +76,22 @@ class TestLogin:
         assert r.status_code in (401, 403)
 
 
+class TestPasswordRecoveryLimits:
+    async def test_forgot_password_tiene_limite_por_ip(self, client: AsyncClient):
+        for _ in range(5):
+            response = await client.post("/auth/forgot-password", json={"email": "nadie@test.cl"})
+            assert response.status_code == 200
+        response = await client.post("/auth/forgot-password", json={"email": "nadie@test.cl"})
+        assert response.status_code == 429
+
+    async def test_reset_password_tiene_limite_por_ip(self, client: AsyncClient):
+        for _ in range(5):
+            response = await client.post("/auth/reset-password", json={"token": "invalido", "new_password": "Test1234!"})
+            assert response.status_code == 400
+        response = await client.post("/auth/reset-password", json={"token": "invalido", "new_password": "Test1234!"})
+        assert response.status_code == 429
+
+
 class TestEndpointProtegido:
     async def test_sin_token_retorna_401(self, client: AsyncClient):
         r = await client.get("/containers/")
