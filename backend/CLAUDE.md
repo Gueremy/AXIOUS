@@ -82,7 +82,7 @@ backend/
 ├── scripts/seed.py         ✅ completo (AXI-10)
 ├── .env                    ✅ existe — NUNCA commitear
 ├── .env.example            ✅ completo (AXI-20)
-├── requirements.txt        ✅ python-jose==3.3.0 + APScheduler==3.10.4
+├── requirements.txt        ✅ python-jose==3.5.0 + APScheduler==3.10.4
 ├── CLAUDE.md               ✅ este archivo
 └── GUIDELINES.md           ✅ buenas prácticas permanentes
 ```
@@ -109,6 +109,8 @@ backend/
 
 #### AXI-5 🔴 CRÍTICO — Bajar python-jose a 3.3.0
 **Responsable: Gueremy | Depende de: nada | Rama: axi-5-python-jose**
+
+> Nota histórica: el pin actual de v3 es 3.5.0; conserva HS256 y corrige CVE-2024-33663.
 
 ```bash
 # 1. Editar requirements.txt:
