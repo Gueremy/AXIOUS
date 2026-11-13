@@ -22,7 +22,7 @@ Sistema web de gestión de inventario con visualización 3D interactiva para
 
 ```
 Backend  : FastAPI 0.110+ · Python 3.11+ · SQLAlchemy 2.x async · Alembic
-Auth     : python-jose==3.3.0 (JWT HS256) · passlib[bcrypt] (cost=12)
+Auth     : python-jose==3.5.0 (JWT HS256) · passlib[bcrypt] (cost=12)
            ⚠️  FIJAR en 3.3.0 — NO actualizar (CVE-2024-33663 en ECDSA)
 BD       : PostgreSQL 15+ · asyncpg==0.31.0 (driver async)
            psycopg2-binary SOLO para alembic/env.py — nunca en código async
@@ -546,8 +546,8 @@ class PaginatedResponse(BaseModel, Generic[T]):
 ## Errores Comunes — Evitar
 
 ```python
-# ❌ python-jose > 3.3.0 → CVE-2024-33663
-# ✅ fijar python-jose==3.3.0 y nunca actualizar
+# ✅ python-jose==3.5.0 corrige CVE-2024-33663; verificar JWT solo con HS256
+# ❌ habilitar ECDSA o verificar tokens sin algorithms=["HS256"]
 
 # ❌ lazy="dynamic" con async SQLAlchemy → error en runtime
 # ✅ lazy="raise" en modelos + selectinload explícito en queries

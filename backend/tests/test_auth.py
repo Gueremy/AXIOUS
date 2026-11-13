@@ -54,6 +54,7 @@ class TestLogin:
         r = await client.post("/auth/login", data={"username": creds["email"], "password": creds["password"]})
         assert r.status_code == 200
         token = r.json()["access_token"]
+        assert jwt.get_unverified_header(token)["alg"] == "HS256"
         payload = jwt.decode(token, key="", options={"verify_signature": False}, algorithms=["HS256"])
         assert "sub" in payload
         assert "exp" in payload
@@ -74,6 +75,31 @@ class TestLogin:
         await db.flush()
         r = await client.post("/auth/login", data={"username": "inactivo@test.cl", "password": "Test1234!"})
         assert r.status_code in (401, 403)
+
+
+class TestPasswordRecoveryLimits:
+    async def test_forgot_password_tiene_limite_por_ip(self, client: AsyncClient):
+        for _ in range(5):
+            response = await client.post("/auth/forgot-password", json={"email": "nadie@test.cl"})
+            assert response.status_code == 200
+        response = await client.post("/auth/forgot-password", json={"email": "nadie@test.cl"})
+        assert response.status_code == 429
+
+    async def test_reset_password_tiene_limite_por_ip(self, client: AsyncClient):
+        for _ in range(5):
+            response = await client.post("/auth/reset-password", json={"token": "invalido", "new_password": "Test1234!"})
+            assert response.status_code == 400
+        response = await client.post("/auth/reset-password", json={"token": "invalido", "new_password": "Test1234!"})
+        assert response.status_code == 429
+
+
+def test_secret_key_no_puede_estar_vacia():
+    from pydantic import ValidationError
+    from app.core.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(DATABASE_URL="sqlite+aiosqlite:///:memory:",
+                 DATABASE_URL_SYNC="sqlite:///:memory:", SECRET_KEY="")
 
 
 class TestEndpointProtegido:
