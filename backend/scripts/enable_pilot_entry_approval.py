@@ -101,4 +101,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError as error:
+        raise SystemExit(f"Error: {error}") from None
