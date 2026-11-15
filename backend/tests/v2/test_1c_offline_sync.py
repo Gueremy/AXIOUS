@@ -396,6 +396,33 @@ async def test_qr_v2_respects_tenant_scope(client, setup_sync_fixture):
 
 
 @pytest.mark.asyncio
+async def test_qr_uses_only_an_allowed_frontend_origin(client, setup_sync_fixture, monkeypatch):
+    import io
+    import qrcode
+    from qrcode.image.svg import SvgPathImage
+    from app.core.config import settings
+
+    preview = "https://salmotrack-v3-prueba.onrender.com"
+    monkeypatch.setattr(settings, "CORS_ORIGINS", [preview])
+    location_id = setup_sync_fixture["ubi_a1"].id
+    endpoint = f"/api/v2/ubicaciones/{location_id}/qr"
+    auth = {"Authorization": f"Bearer {setup_sync_fixture['token_a']}"}
+
+    def expected_svg(base_url):
+        buffer = io.BytesIO()
+        qrcode.make(f"{base_url}/locations/{location_id}", image_factory=SvgPathImage).save(buffer)
+        return buffer.getvalue()
+
+    allowed = await client.get(endpoint, headers={**auth, "Origin": preview})
+    assert allowed.status_code == 200
+    assert allowed.content == expected_svg(preview)
+
+    foreign = await client.get(endpoint, headers={**auth, "Origin": "https://otro.example"})
+    assert foreign.status_code == 200
+    assert foreign.content == expected_svg(settings.FRONTEND_URL.rstrip("/"))
+
+
+@pytest.mark.asyncio
 async def test_prepared_package_and_readable_ledger(client, setup_sync_fixture):
     ctx = setup_sync_fixture
     headers = {"Authorization": f"Bearer {ctx['token_a']}"}

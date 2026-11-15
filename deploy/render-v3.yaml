@@ -77,7 +77,7 @@ services:
       - key: POWER_BI_PASSWORD
         generateValue: true
       - key: CORS_ORIGINS
-        value: '["https://salmotrack-v3-qq8r.onrender.com"]'
+        value: '["https://salmotrack-v3-qq8r.onrender.com","https://salmotrack-v3-prueba.onrender.com"]'
       - key: FRONTEND_URL
         value: https://salmotrack-v3-qq8r.onrender.com
       - key: BASE_URL

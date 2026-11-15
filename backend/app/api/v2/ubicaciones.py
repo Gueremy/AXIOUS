@@ -1,6 +1,6 @@
 import math
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -171,6 +171,7 @@ async def actualizar_ubicacion(
 @router.get("/{id_ubicacion}/qr")
 async def generar_qr_ubicacion(
     id_ubicacion: str,
+    request: Request,
     tenant: TenantContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -182,7 +183,10 @@ async def generar_qr_ubicacion(
     from qrcode.image.svg import SvgPathImage
     ubicacion = await obtener_ubicacion(id_ubicacion, tenant, db)
     from app.core.config import settings
-    imagen = qrcode.make(settings.FRONTEND_URL.rstrip("/") + "/locations/" + quote(ubicacion.id, safe=""), image_factory=SvgPathImage)
+    origin = request.headers.get("origin")
+    allowed_origins = {url.rstrip("/") for url in settings.CORS_ORIGINS if url != "*"}
+    frontend_url = origin if origin in allowed_origins else settings.FRONTEND_URL.rstrip("/")
+    imagen = qrcode.make(frontend_url + "/locations/" + quote(ubicacion.id, safe=""), image_factory=SvgPathImage)
     buffer = io.BytesIO()
     imagen.save(buffer)
     return Response(buffer.getvalue(), media_type="image/svg+xml",
