@@ -28,9 +28,11 @@ async def seed():
         db.add(org); await db.flush()
         user = Usuario(id=ident("user"), id_organizacion=org.id, nombre="Operaria privada de prueba",
             email="browser@example.cl", password_hash=get_password_hash("BrowserTest123!"), codigo_empleado="BROWSER-01", rol="operario", activo=True)
+        admin = Usuario(id=ident("admin"), id_organizacion=org.id, nombre="Administración de prueba",
+            email="browser-admin@example.cl", password_hash=get_password_hash("BrowserTest123!"), codigo_empleado="BROWSER-00", rol="super_admin", activo=True)
         site = Sitio(id=ident("site"), id_organizacion=org.id, codigo="S01", nombre="Bodega privada de prueba", tipo="bodega")
         item = Item(id=ident("item"), id_organizacion=org.id, codigo="SKU001", nombre="Insumo privado de prueba", categoria="general", unidad_medida="kg")
-        db.add_all([user, site, item]); await db.flush()
+        db.add_all([user, admin, site, item]); await db.flush()
         limited = Usuario(id=ident("limited-user"), id_organizacion=org.id, nombre="Operario con acceso limitado",
             email="browser-limited@example.cl", password_hash=get_password_hash("BrowserTest123!"),
             codigo_empleado="BROWSER-02", rol="operario", activo=True)

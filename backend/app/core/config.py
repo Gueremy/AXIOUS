@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
     DATABASE_URL_SYNC: str
-    SECRET_KEY: str
+    SECRET_KEY: str = Field(min_length=1)
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:5173"])
 
