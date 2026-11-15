@@ -22,7 +22,7 @@ Sistema web de gestión de inventario con visualización 3D interactiva para
 
 ```
 Backend  : FastAPI 0.110+ · Python 3.11+ · SQLAlchemy 2.x async · Alembic
-Auth     : python-jose==3.5.0 (JWT HS256) · passlib[bcrypt] (cost=12)
+Auth     : PyJWT==2.15.1 (JWT HS256) · passlib[bcrypt] (cost=12)
            ⚠️  FIJAR en 3.3.0 — NO actualizar (CVE-2024-33663 en ECDSA)
 BD       : PostgreSQL 15+ · asyncpg==0.31.0 (driver async)
            psycopg2-binary SOLO para alembic/env.py — nunca en código async
@@ -236,7 +236,7 @@ def resolver_conflicto(movimiento_offline: dict, estado_actual_db: dict) -> dict
 
 ### Autenticación (A07)
 ```python
-# JWT con HS256 — NUNCA usar ECDSA (CVE-2024-33663 en python-jose)
+# JWT con HS256 y clave simétrica; no habilitar algoritmos asimétricos
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -546,8 +546,8 @@ class PaginatedResponse(BaseModel, Generic[T]):
 ## Errores Comunes — Evitar
 
 ```python
-# ✅ python-jose==3.5.0 corrige CVE-2024-33663; verificar JWT solo con HS256
-# ❌ habilitar ECDSA o verificar tokens sin algorithms=["HS256"]
+# ✅ PyJWT==2.15.1; verificar JWT solo con HS256 y clave simétrica
+# ❌ verificar tokens sin algorithms=["HS256"] o habilitar algoritmos asimétricos
 
 # ❌ lazy="dynamic" con async SQLAlchemy → error en runtime
 # ✅ lazy="raise" en modelos + selectinload explícito en queries

@@ -1,6 +1,6 @@
 """
 tests/test_auth.py  — Sprint 1
-Verifica: login, token JWT con python-jose 3.3.0, refresh, roles.
+Verifica: login, token JWT HS256, refresh, roles.
 """
 import pytest
 from httpx import AsyncClient
@@ -49,7 +49,7 @@ class TestLogin:
         assert r.status_code == 401
 
     async def test_token_tiene_campos_correctos(self, client: AsyncClient, db: AsyncSession, sede):
-        from jose import jwt
+        import jwt
         creds = await _crear_usuario(db, sede_id=sede.id)
         r = await client.post("/auth/login", data={"username": creds["email"], "password": creds["password"]})
         assert r.status_code == 200

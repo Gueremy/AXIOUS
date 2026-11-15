@@ -1,12 +1,13 @@
 """
 app/core/security.py
 Funciones de hashing, JWT y verificación de credenciales.
-NUNCA usar ALGORITHM distinto a HS256 — CVE-2024-33663 en python-jose con ECDSA.
+Solo se aceptan tokens HS256 firmados con la clave simétrica del servicio.
 """
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 from passlib.context import CryptContext
 
 from app.core.config import settings
